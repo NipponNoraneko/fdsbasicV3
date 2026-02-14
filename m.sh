@@ -16,6 +16,7 @@ pack()
 case "$1" in
 	"clean")
 		rm	*.o *.fds *.lbl *.dbg
+		rm	stuff/fbv3d.bin stuff/char-rom.chr
 		;;
 	"pack")
 		pack
