@@ -12,7 +12,7 @@ loadFileType:
 	.byte	$00
 driveStat:						; ドライブ状態
 	.byte	$00
-
+							;--- タイトル行
 strNS_HUDSON:
 	.byte	"NS-HUBASIC V3.0D:"
 .incbin	"datetime.s",0,10

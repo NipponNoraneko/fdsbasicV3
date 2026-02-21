@@ -2,6 +2,7 @@
 ;------------------------------------------------------------------------------
 ;
 ;------------------------------------------------------------------------------
+zBufAddr	=	zpPokeAddr		; zpPokeAddrはPOKE以外で使われていない(多分)
 
 ;------------------------------------------------
 diskID		=	diskBuf+$0e
@@ -179,35 +180,43 @@ FDSStart:
 ;------------------------------------------------------------------------------
 ;	ReadBlockNN:	one block read
 ;
-;	IN	A = block number
-;		XY= read buffer address
+;	IN	XY= read buffer address
 ;		X: address upper
 ;		Y: lower
 ;
-readBufPtr	=	RBNNptr+1
-blk03Ptr	=	blk03byte+1
 
 ReadBlock01:
+	ldx	#>diskInfoBlock
+	ldy	#<diskInfoBlock
+	lda	#DISK_INFO_BLK_SIZE-1
+	sta	readCnt
+	lda	#0
+	sta	readCnt+1
 	lda	#01
 	bne	ReadBlockNN
+
 ReadBlock03:
+	lda	#FILE_HDR_BLK_SIZE-1
+	sta	readCnt
+	lda	#0
+	sta	readCnt+1
+
 	lda	#03
-	bne	ReadBlockNN
-ReadBlock04:
-	lda	#04
+;	bne	ReadBlockNN
+
+;ReadBlock04:
+;	lda	#04
 ReadBlockNN:
-	sty	readBufPtr
-	stx	readBufPtr+1
-	sty	blk03Ptr
-	stx	blk03Ptr+1
+	sty	zBufAddr
+	stx	zBufAddr+1
 
 	jsr	CheckBlockType
 						;---
 	ldy	#$00
 RBlk10:
 	jsr	XferByte
-RBNNptr:
-	sta	readBufPtr,y
+	sta	(zBufAddr),y
+
 	iny
 	cpy	readCnt
 	bne	RBlk10
@@ -259,23 +268,11 @@ PutHex2:
 ;	MakeFileListLine:	詳細ファイル行作成
 ;
 MakeFileListLine:
-.ifdef aaa
-	lda	#' '
-	jsr	QueueCharForOutput
-@MFL05:						;--- file no.
-	ldy	#$00
-	lda	(joypad),y
-	iny
-	ora	#'0'
-@MFL07:
-	jsr	QueueCharForOutput
-.else
-	ldy	#$01
-.endif
 	lda	#' '
 	jsr	QueueCharForOutput
 						;--- file ID
-	lda	(joypad),y
+	ldy	#$01
+	lda	(tmpAccm),y
 	iny
 	jsr	Bin2HexQ
 	lda	#':'
@@ -283,7 +280,7 @@ MakeFileListLine:
 						;--- file name
 	ldy	#$02
 @MFL10:
-	lda	(joypad),y
+	lda	(tmpAccm),y
 	iny
 	jsr	QueueCharForOutput
 	cpy	#10
@@ -293,10 +290,10 @@ MakeFileListLine:
 	jsr	QueueCharForOutput
 						;--- store address	
 	iny
-	lda	(joypad),y
+	lda	(tmpAccm),y
 	jsr	Bin2HexQ
 	dey
-	lda	(joypad),y
+	lda	(tmpAccm),y
 	jsr	Bin2HexQ
 
 	lda	#' '
@@ -305,10 +302,10 @@ MakeFileListLine:
 	iny
 	iny
 	iny
-	lda	(joypad),y
+	lda	(tmpAccm),y
 	jsr	Bin2HexQ
 	dey
-	lda	(joypad),y
+	lda	(tmpAccm),y
 	jsr	Bin2HexQ
 
 	lda	#' '
@@ -316,7 +313,7 @@ MakeFileListLine:
 						;--- file type
 	iny
 	iny
-	lda	(joypad),y
+	lda	(tmpAccm),y
 	ora	#'0'
 	jsr	QueueCharForOutput
 						;--- padding
@@ -342,71 +339,51 @@ PrintFileLine:
 	lda	#0
 	sta	tmpAccm+3
 
-	ldx	fileCnt
+	ldx	fileAmount
+	stx	fileCnt
 @PFL10:
-	txa
-	pha
 	jsr	MakeFileListLine		; 表示行作成
 	jsr	QueueNullForOutput
 	jsr	PrintOutBuf
 	jsr	DoCRLF
 	jsr	Add16
-	pla
-	tax
-	dex
+
+	dec	fileCnt
 	bne	@PFL10
 
 	rts
 
 ;------------------------------------------------------------------------------
-;	FileList:	詳細ファイル・リスト
+;	FileList:	詳細ファイル・リスト取得
 ;
 FileList:
 	jsr	VsyncOff
-
-	lda	#$00
-	sta	fileCnt
 	jsr	FDSStart
 
-;----- Block 01
-	ldx	#>diskInfoBlock
-	ldy	#<diskInfoBlock
-	lda	#DISK_INFO_BLK_SIZE-1
-	sta	readCnt
+	jsr	ReadBlock01				; Block 01
 
-	jsr	ReadBlock01
+	ldx	#>block03Buf
+	stx	zBufAddr+1
+	ldy	#<block03Buf
+	sty	zBufAddr
 
 ;----- Block 02 (ファイル数)
 	jsr	GetNumFiles
 	ldx	tempzp+6
 	stx	fileAmount
-@FL05:
-	txa
-	pha
-
+	stx	fileCnt
+@FLLoop:
 ;----- Block 03
-	lda	fileCnt
-	bne	@FL07
-
-	ldx	#>block03Buf
-	ldy	#<block03Buf
-	jmp	@FL09
-@FL07:
-	ldx	readBufPtr+1
-	ldy	readBufPtr
+	ldx	zBufAddr+1
+	ldy	zBufAddr
 @FL09:
-	lda	#FILE_HDR_BLK_SIZE-1
-	sta	readCnt
-
-	jsr	ReadBlock03			; Block 03 読込み
-
-	inc	fileCnt
+	jsr	ReadBlock03				; Block 03 読込み
 
 ;--- Block 04 (Skip reading)
-						;--- 読み込みバイト数
-	lda	readBufPtr
+							;--- 読み込みバイト数
+	lda	zBufAddr
 	sta	joypad
-	lda	readBufPtr+1
+	lda	zBufAddr+1
 	sta	joypad+1
 
 	ldy	#$0c
@@ -417,43 +394,29 @@ FileList:
 	sta	readCnt+1
 
 	lda	#$04
-	jsr	SkipBlockNN			; Block 04読み飛ばし
-						;--- 次読み込みアドレス
-	lda	readBufPtr
+	jsr	SkipBlockNN				; Block 04読み飛ばし
+							;--- 次読み込みアドレス
+	lda	zBufAddr
 	clc
 	adc	#$10
 	bcc	@FL15
 
-	inc	readBufPtr+1
-	inc	blk03byte+2
+	inc	zBufAddr+1
 @FL15:
-	sta	readBufPtr
-	sta	blk03byte+1
-
-	pla
-						;--- to Next block03
-	tax
-	dex
-	bne	@FL05
+	sta	zBufAddr
+							;--- to Next block03
+	dec	fileCnt
+	bne	@FLLoop
 
 	jsr	EndFDS
 
 	lda	#$02
 	sta	diskInfoStat
-ErrEnd:
-	jsr	VsyncOn
 
+	jsr	VsyncOn
 	jsr	PrintFileLine
 
 	rts
-
-;--------------------------------------------
-blk03byte:
-	lda	block03Buf,y
-	iny
-
-	rts
-
 
 ;------------------------------------------------------------------------------
 ;	LoadFile:
