@@ -12,13 +12,12 @@ https://github.com/NipponNoraneko/FC-DiskBASIC/tree/v3 から分離しました�
 ![fdsv3_001](img/fdsv3_001.png)
 ![fdsv3_000](img/fdsv3_000.png)
 ![fdsv3_002](img/fdsv3_002.png)
+
 ### 追加機能
 1. ディスクカードアクセス(実験中)<br>
 現在は$6000から$6fffをBASICプログラムとして扱っています。今後仕様の変更を行いますのでご注意ください。
-    - FDS<br>
-    ディスクカードのファイル一覧を表示
-    - FDSLIST<br>
-ディスクカードのファイル詳細の表示<br>
+    - FDS : ディスクカードのファイル一覧の表示
+    - FDSLIST : ディスクカードのファイル詳細の表示<br>
     - FDSLOAD fileID<br>
     FDS/FDSLISTで表示されるIDを指定します。
     - FDSSAVE "filename"<br>
@@ -29,8 +28,8 @@ https://github.com/NipponNoraneko/FC-DiskBASIC/tree/v3 から分離しました�
 メモリ内容の表示・変更<br>
   ■起動:　ダイレクトモードでMONと入力します。<br>
    MON<br>
-  . D :メモリ・ダンプ<br>
-  . M :メモリ変更<br>
+    - D :メモリ・ダンプ<br>
+    - M :メモリ変更<br>
 
 ## ビルド
 ### 準備
@@ -51,7 +50,7 @@ fdspacker pack fbv3d.json fbv3d.fds
 
 ## 謝辞
 - PAC-WORLD<br>
-[テル氏](https://x.com/teru72ig) 同梱の許可をいただきました。
+[テル氏](https://x.com/teru72ig)より 同梱の許可をいただきました。
 - 許諾画面スキップ<br>
   - Forum discussion:<br> https://forums.nesdev.org/viewtopic.php?t=25171
   - Github bbbradsmith/NES-ca65-example<br> https://github.com/bbbradsmith/NES-ca65-example/tree/fds
