@@ -1,7 +1,7 @@
 # [WIP] *Family BASIC V3 on Disk System*
 https://github.com/NipponNoraneko/FC-DiskBASIC/tree/v3 から分離しました。<br>
 今後はこのリポジトリを更新していきます。<br><br>
-FC-BASICリポジトリの内容に以下の変更が加わっています。
+以前の公開時から以下の内容を追加・変更しました。
 - 許諾画面のスキップ<br>
 - fdsファイルの作成に fdspackerを使用<br>
 - BASICファイルのLOAD/SAVE<br>
@@ -19,7 +19,8 @@ FC-BASICリポジトリの内容に以下の変更が加わっています。
     - FDSLOAD fileID<br>
     FDS/FDSLISTで表示されるIDを指定します。
     - FDSSAVE "filename"<br>
-    ファイル名を指定します。
+    ファイル名を指定します。ファイル名が同じ場合は上書きされます。<br>
+    ※ディスクカードの残量を見ていませんので、たくさんファイルを追加すると壊れます。
 
 2. 簡易モニタ(未完成)<BR>
 メモリ内容の表示・変更を行います。<br>
