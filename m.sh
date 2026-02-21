@@ -27,7 +27,7 @@ case "$1" in
 		;;
 	*)
 		# ビルド日時タイトル表示用
-		date +"%y%m%d%H%M" > datetime.s
+#		date +"%y%m%d%H%M" > datetime.s
 
 		echo "Assembling..."
 		ca65 $FILE_NAME.s -g $ASM_FLG
