@@ -1,14 +1,21 @@
+; tab=8
 
 zEditAddr	=	zpPokeAddr		; basic zp override
-
-BS		=	$08
-CR		=	$0d
-LEFT		=	$1c
-RIGHT		=	$1d
-UP		=	$1e
-DOWN		=	$1f
+						; zpPokeAddrはPOKE以外で使われていない(多分)
+STOP_KEY	=	$03
+BS_KEY		=	$08
+CR_KEY		=	$0d
+LEFT_KEY	=	$1c
+RIGHT_KEY	=	$1d
+UP_KEY		=	$1e
+DOWN_KEY	=	$1f
 
 ;------------------------------------------------------------------------------
+;	HexCharCheck:	
+;		IN:	A = Check code
+;		OUT:	CY=ON	not Hex Char
+;			  =OFF	Hex Char
+;
 HexCharCheck:
 	cmp	#'0'
 	bmi	HCCErr
@@ -27,27 +34,29 @@ HCCErr:
 	rts
 
 ;------------------------------------------------------------------------------
-ReadAddr:
+;	InputBytes:	アドレス入力
+;
+InputBytes:
 	ldx	#$00
 	stx	nibbleCnt
-	stx	readCharCnt
+	stx	inputCharCnt
 	dex
-	stx	readKeyBuf
+	stx	inputCharBuf
 		
 @RALoop:
 	jsr	ReadChar
 	jsr	HexCharCheck
 	bcc	@RA15					; is hex char
 
-	cmp	#BS					; Backspace
+	cmp	#BS_KEY					; Backspace
 	bne	@RA13					; no
-	lda	readCharCnt
+	lda	inputCharCnt
 	beq	@RA13					; not yet entered
 	jsr	Backspace
-	dec	readCharCnt
+	dec	inputCharCnt
 	jmp	@RALoop
 @RA13:
-	cmp	#CR					; CR
+	cmp	#CR_KEY					; CR
 	bne	@RA14
 	rts
 @RA14:
@@ -65,57 +74,97 @@ ReadAddr:
 	sta	nibbleCnt
 @RA20:
 	pla
-	ldx	readCharCnt
-	sta	readKeyBuf,x
+	ldx	inputCharCnt
+	sta	inputCharBuf,x
 	inx
 
 	lda	#$ff
-	sta	readKeyBuf,x
-	stx	readCharCnt
+	sta	inputCharBuf,x
+	stx	inputCharCnt
 
-	cpx	#$04
+	cpx	reqBytes
 	bne	@RALoop
 
 	rts
 
-readCharCnt:
+;--------------------------------------------------------
+reqBytes:
 	.res		1
-readKeyBuf:
+inputCharCnt:
+	.res		1
+inputCharBuf:
 	.res		4+1
 
 ;------------------------------------------------------------------------------
-DumpBody:
-	lda	readCharCnt
+;
+FromInput:
+							;---" FROM:$"
+	lda	#<sFrom
+	sta	zpOutputStr
+	lda	#>sFrom
+	sta	zpOutputStr+1
+	jsr	PrintString
+							;--- アドレス入力
+	lda	#4
+	sta	reqBytes
+	jsr	InputBytes
+
+	lda	inputCharCnt
+	bne	@FI10
+							;--- 入力なし
+	sec
+
+	rts
+@FI10:
+	jsr	DoCRLF
+	jsr	Asc2Bin					; アドレス変換
+
+	clc
+@FIEnd:
+	rts
+
+;------------------------------------------------------------------------------
+;
+KetaCheck:
+	lda	inputCharCnt
 	cmp	#$3
-	bpl	@DB05
-								; Address is lt 3digits
+	bpl	@KC10
+							;--  アドレス3桁未満
 	lda	binA2B
 	sta	monPtr+1
 	lda	#$00
 	sta	monPtr+2
-	beq	@DBNext
-@DB05:
-	lda	binA2B						;--- Start Address
+	beq	@KCEnd
+@KC10:							;--- 3桁以上
+	lda	binA2B
 	sta	monPtr+2
 	lda	binA2B+1
 	sta	monPtr+1
-@DBNext:
+@KCEnd:
+	rts
+
+;------------------------------------------------------------------------------
+;	DumpBody:	ダンプ本体
+;
+DumpBody:
+	jsr	KetaCheck
+
 	lda	#$00
 	sta	zpCH
 	sta	tmpBufPos
-								;--- Header line
+							;--- Header line
 	ldy	#28
 @DB10:	
-	lda	#$ed						; ─
+	lda	#$ed					; ─
 	cpy	#24
 	bne	@DB15
-	lda	#$EA						; ┬
+	lda	#$EA					; ┬
 @DB15:
 	jsr	QueueCharForOutput
 	dey
 	bne	@DB10
 	jsr	PrintOutBuf
-								;--- ADDRESS
+							;--- ADDRESS
 	lda	#$00
 	tay
 @DBLoop:
@@ -124,9 +173,9 @@ DumpBody:
 	jsr	Bin2HexQ
 	lda	monPtr+1
 	jsr	Bin2HexQ
-								;--- DATA
+							;--- DATA
 	ldy	#$00
-	lda	#$ee						; │
+	lda	#$ee					; │
 	jmp	@DB60
 @DBByteLoop:
 	lda	#' '
@@ -137,10 +186,10 @@ DumpBody:
 	iny
 	cpy	#$08
 	bne	@DBByteLoop
-								;--- End 1 line
+							;--- End 1 line
 	jsr	QueueNullForOutput
 	jsr	PrintOutBuf
-								;--- update line addr
+							;--- update line addr
 	lda	GetMonByte+1
 	clc
 	adc	#$08
@@ -148,76 +197,72 @@ DumpBody:
 	inc	GetMonByte+2
 @DB20:
 	sta	GetMonByte+1
-								;--- end check (16line)
+							;--- end check (16line)
 	pla
 	clc
 	adc	#1
 	cmp	#16
-	bne	@DBLoop						; not end
+	bne	@DBLoop					; not end
 
 	rts
 
 ;------------------------------------------------------------------------------
+;	Dump
+;
 Dump:
-	dec	zpCH
-
+							;--- Put "DUMP"
 	lda	#<sDump
 	sta	zpOutputStr
 	lda	#>sDump
 	sta	zpOutputStr+1
 	jsr	PrintString
 
-	lda	#<sFrom
-	sta	zpOutputStr
-	lda	#>sFrom
-	sta	zpOutputStr+1
-	jsr	PrintString
+	jsr	FromInput				;--- アドレス入力
+	bcs	DumpErr					; 入力無し
 
-	jsr	ReadAddr
+	jsr	DumpBody				;
 
-	lda	readCharCnt
-	beq	DumpErr
+	lda	#0
+	sta	dirty
 
-	jsr	DoCRLF
-
-	jsr	Asc2Bin
-	jsr	DumpBody
+	clc
 
 	rts
 
 DumpErr:
+	lda	#$ff
+	sta	dirty
+
 	jsr	DoCRLF
 	jsr	ShortBeep
+
+	clc
+
 	rts
 
-sDump:	.asciiz		"DUMP"
-sModify:.asciiz		"MODIFY"
-sFill:	.asciiz		"FILL"
-sFrom:	.asciiz		" FROM:$"
-sTo:	.asciiz		" TO:$"
-sVal:	.asciiz		" VAL:$"
-
 ;------------------------------------------------------------------------------
+;
 GetMonByte:
 monPtr:	lda	GetMonByte,y
 
 	rts
 
 ;------------------------------------------------------------------------------
+;
 ModByte:
 	jsr	HexCharCheck
 	bcs	@MBErr
 @MB02:
 	pha
-
+							;--- edit addr
 	lda	binA2B+1
 	sta	zEditAddr
 	lda	binA2B
 	sta	zEditAddr+1
 
 	ldx	nibbleCnt
-	bne	@MB10						; lower nibble
-;----- upper nibble
+	bne	@MB10					; lower nibble
+							;----- upper nibble
 	ldx	#$0f
 	stx	nibbleMask
 
@@ -232,21 +277,22 @@ ModByte:
 	asl	a
 	and	#$f0
 	jmp	@MB20
-;----- lower nibble
+							;----- lower nibble
 @MB10:
-	dec	zpCH						; adjust H pos for HEX out
+	dec	zpCH					; adjust H pos for HEX out
 
 	ldx	#$f0
 	stx	nibbleMask
+
 	pla
 	sec
 	sbc	#'0'
 	cmp	#$0a
-	bmi	@MB20
+	bmi	@MB20					; "0" ~ "9"
 
 	and	#$0f
 	clc
-	adc	#$09
+	adc	#$09					; "A" ~ 
 @MB20:
 	ldy	tmpBufPos
 	tax
@@ -260,7 +306,6 @@ ModByte:
 	jsr	Bin2HexQ
 	jsr	PrintOutBuf
 
-
 	jsr	MMRight
 
 	lda	tmpCV
@@ -272,26 +317,39 @@ ModByte:
 
 	rts
 
+;--------------------------------------------------------
 nibbleMask:
 	.res		1
 
 ;------------------------------------------------------------------------------
+;
 ModifyMode:
-	dec	zpCH
-
+	lda	dirty
+	beq	@MM10
+							;--- "MODIFY"
 	lda	#<sModify
 	sta	zpOutputStr
 	lda	#>sModify
 	sta	zpOutputStr+1
 	jsr	PrintString
 
+	jsr	FromInput
+	bcs	@MMErr
+
+	jsr	DumpBody				; dump出力
+
+	lda	#0
+	sta	dirty
+@MM10:
 	lda	zpCH
 	sta	zpCHsav
 
 	lda	zpCV
-	sta	zpCVsav
+	tax
+	dex
+	stx	zpCVsav
 	sec
-	sbc	#16
+	sbc	#16					; 16行上へ
 	sta	zpCV
 	sta	tmpCV
 	sta	topCV
@@ -302,42 +360,52 @@ ModifyMode:
 
 	ldy	#$00
 	sty	nibbleCnt
-;----- 
-@MMCursor:
+@MMCursor:						;----- 
 	jsr	ReadChar
-	cmp	#LEFT						; →
+
+	cmp	#LEFT_KEY				; →
 	beq	@JMMRight
-	cmp	#'L'						; →
+	cmp	#'L'					; →
 	beq	@JMMRight
 
-	cmp	#RIGHT						; ←
+	cmp	#RIGHT_KEY				; ←
 	beq	@JMMLeft
-	cmp	#'H'						; ←
+	cmp	#'H'					; ←
 	beq	@JMMLeft
 
-	cmp	#UP						; ↑
+	cmp	#UP_KEY					; ↑
 	beq	@JMMUp
-	cmp	#'K'						; ↑
+	cmp	#'K'					; ↑
 	beq	@JMMUp
 
-	cmp	#DOWN						; ↓
+	cmp	#DOWN_KEY				; ↓
 	beq	@JMMDown
-	cmp	#'J'						; ↓
+	cmp	#'J'					; ↓
 	beq	@JMMDown
 
 	cmp	#'Q'
-	beq	@MMEnd						; Exit
+	beq	@MMEnd					; 終了
+	cmp	#':'					; :
+	beq	@MMEnd
 
 	jsr	ModByte
 	jmp	@MMCursor
+@MMErr:
+	jsr	DoCRLF
+	jsr	ShortBeep
+	clc
+	rts
 @MMEnd:
 	lda	zpCVsav
 	sta	zpCV
 	lda	zpCHsav
 	sta	zpCH
 
+	clc
+
 	rts
 
+;--------------------------------------------------------
 @JMMRight:
 	jsr	MMRight
 	jmp	@MMCursor
@@ -352,19 +420,22 @@ ModifyMode:
 	jmp	@MMCursor
 
 ;------------------------------------------------------------------------------
+;
 MMLeft:
 	ldx	tmpCH
 	dex
 	cpx	#$05
-	bmi	MML10
+	bmi	@MML10
+
 	stx	tmpCH
 	stx	zpCH
 
 	dec	nibbleCnt
-	bmi	MML05
+	bmi	@MML05
 		
 	rts
-MML05:
+
+@MML05:
 	lda	#$02
 	sta	nibbleCnt
 	dec	tmpBufPos
@@ -372,7 +443,8 @@ MML05:
 	jsr	MMLeft
 
 	rts
-MML10:
+
+@MML10:
 	lda	#01
 	sta	nibbleCnt
 
@@ -390,6 +462,7 @@ MML10:
 	rts
 
 ;------------------------------------------------------------------------------
+;
 MMRight:
 	ldx	tmpCH
 	inx
@@ -403,10 +476,10 @@ MMRight:
 	inc	nibbleCnt
 	ldx	#$02
 	cpx	nibbleCnt
-	beq	MMR10
+	beq	@MMR10
 
 	rts
-MMR10:
+@MMR10:
 	ldx	#$ff
 	stx	nibbleCnt
 
@@ -416,8 +489,8 @@ MMR10:
 
 	rts
 
-;--- to next line head
 MMRNextLine:
+							;--- to next line head
 	lda	#$00
 	sta	nibbleCnt
 
@@ -453,10 +526,10 @@ MMUp:
 ;------------------------------------------------------------------------------
 MMDown:
 	ldx	tmpCV
-	inx
 	cpx	zpCVsav
-	bpl	MMErr
+	beq	MMErr
 
+	inx
 	stx	zpCV
 	stx	tmpCV
 		
@@ -467,76 +540,187 @@ MMDown:
 
 	rts
 
-;------------------------------------------------------------------------------
+;--------------------------------------------------------
 MMErr:
 	jsr	ShortBeep				; short BEEP
 
 	rts
 
-
+;--------------------------------------------------------
 tmpCV:	.res	1
 tmpCH:	.res	1
 topCV:	.res	1
 topCH:	.res	1
 nibbleCnt:
 	.res	1
+dirty:	.res	1
+
+
 
 ;------------------------------------------------------------------------------
-MonPrompt:
+;
+Fill:
+							;--- Put "FILL"
+	lda	#<sFill
+	sta	zpOutputStr
+	lda	#>sFill
+	sta	zpOutputStr+1
+	jsr	PrintString
+
+	jsr	FromInput
 	jsr	DoCRLF
-MP05:
-	lda	#$b3					; prompt char '['
-	jsr	PrintOneChar
-@MPLoop:
-	jsr	ReadChar
-	pha
-	jsr	PrintOneChar				; key echo
-	pla
-
-.ifdef	aaaa
-	cmp	#' '
-	beq	@CMNext
-	cmp	#DOWN					; ↓
-	beq	@CMNext
-	cmp	#UP					; ↑
-.endif
+							;--- Put "TO:$"
+	lda	#<sTo
+	sta	zpOutputStr
+	lda	#>sTo
+	sta	zpOutputStr+1
+	jsr	PrintString
+	lda	#4
+	sta	reqBytes
+	jsr	InputBytes
+	jsr	DoCRLF
+							; 大小比較
 
 
-	cmp	#CR
-	beq	MonPrompt
-@MP10:
-	cmp	#'D'					; Dump
-	bne	@MP20
-	jsr	Dump
-	jmp	MP05
-@MP20:
-	cmp	#'M'					; Modify
-	bne	@MP30
-	jsr	ModifyMode
-	jmp	MonPrompt
-@MP30:
-	cmp	#'F'					; Fill
+							;--- Put "VAL:$"
+	lda	#<sVal
+	sta	zpOutputStr
+	lda	#>sVal
+	sta	zpOutputStr+1
+	jsr	PrintString
 
-	cmp	#$03
-	beq	@MPEnd					; STOP key
+	lda	#2
+	sta	reqBytes
+	jsr	InputBytes
 
-	cmp	#'Q'					; Quit
-	bne	MonPrompt
-@MPEnd:
+	lda	#$ff
+	sta	dirty
 
-	sec
+	clc
+
 	rts
 
+;--------------------------------------------------------
+sDump:	.asciiz		"DUMP"
+sModify:.asciiz		"MODIFY"
+sFill:	.asciiz		"FILL"
+sFrom:	.asciiz		" FROM:$"
+sTo:	.asciiz		"        TO:$"
+sVal:	.asciiz		"       VAL:$"
+
+GetOneChar:
+	jsr	ReadChar
+	ldx	zpRkimMidMacro
+	bne	GetOneChar
+
+	sta	readChar
+
+	rts
+
+readChar:
+	.res	1
+
 ;------------------------------------------------------------------------------
+;	MonPrompt:
+;
+MonPrompt:
+	clc
+MPRET:
+	bcs	MPExit
+@MP01:
+	jsr	DoCRLF
+	lda	#$b3					; ']'
+	jsr	PrintOneChar
+@MPLoop:
+	jsr	GetOneChar
+	jsr	PrintOneChar				; key echo
+
+	ldx	#0
+@MP10:
+	lda	monCmds,x
+	cmp	readChar
+	beq	@MP20
+	cmp	#$ff
+	beq	@MP01
+
+	inx
+	inx
+	inx
+
+	lda	#$ff
+	sta	dirty
+	bne	@MP10
+@MP20:
+	inx
+	lda	monCmds,x
+	sta	zEditAddr
+	lda	monCmds+1,x
+	sta	zEditAddr+1
+	
+	dec	zpCH
+
+	lda	#>(MPRET-1)
+	pha
+	lda	#<(MPRET-1)
+	pha
+
+	clc
+	jmp	(zEditAddr)
+MPExit:
+	sec
+
+	rts
+MPEnd:
+	lda	readChar
+	jsr	PrintOneChar				; key echo
+
+	lda	#$ff
+	sta	dirty
+
+	clc
+
+	rts
+
+
+;--------------------------------------------------------
+monCmds:
+	.byte	STOP_KEY
+	.addr	MPExit
+
+	.byte	'Q'
+	.addr	MPExit
+
+	.byte	CR_KEY
+	.addr	MPEnd
+
+	.byte	' '
+	.addr	MPEnd
+
+	.byte	'D'
+	.addr	Dump
+
+	.byte	'M'
+	.addr	ModifyMode
+
+	.byte	'F'
+	.addr	Fill
+
+	.byte	$ff					; end
+
+;------------------------------------------------------------------------------
+;
 CmdMON:
-@CMON10:
-	jsr	MP05
-	bcc	@CMON10
+	lda	#$ff
+	sta	dirty
+
+	jsr	MonPrompt
+	bcc	CmdMON
 
 	jsr	TxtPtrIncr
 
 	rts
 
+;--------------------------------------------------------
 tmpBufPos:
 	.res	1
 zpCHsav:

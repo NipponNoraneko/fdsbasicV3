@@ -239,7 +239,7 @@ tBinHex:.byte	"0123456789ABCDEF"
 Asc2Bin:
 	ldx	#$00
 @A2BLoop:						;--- ASC to Nibble loop
-	lda	readKeyBuf,x
+	lda	inputCharBuf,x
 	cmp	#$ff
 	beq	@A2BEnd
 
@@ -256,15 +256,15 @@ Asc2Bin:
 	and	#$0f
 	sta	tmpA2B,x
 	inx
-	cpx	readCharCnt
+	cpx	inputCharCnt
 	bne	@A2BLoop
 							;--- Nibble to Bin
 	lda	#$00
 	tay
 	tax
-	lda	readCharCnt
+	lda	inputCharCnt
 	lsr
-	bcs	@A2B400					; readCharCnt is odd
+	bcs	@A2B400					; inputCharCnt is odd
 	tya
 	tax
 @A2B300:
@@ -279,7 +279,7 @@ Asc2Bin:
 @A2B400:
 	iny
 	inx
-	cpx	readCharCnt
+	cpx	inputCharCnt
 	bne	@A2B300
 @A2BEnd:
 	rts

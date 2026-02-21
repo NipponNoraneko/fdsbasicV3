@@ -529,8 +529,8 @@ ReadBufX:
 
 ;------------------------------------------------------------------------------
 ;
-;--- fileID
 QueueFileName:
+						;--- fileID
 	ldx	#$00
 	jsr	ReadBufX
 
@@ -767,17 +767,17 @@ FileSave:
 	lda	#0
 	sta	fileNumber
 
-	jsr	SetBasHeader
+	jsr	SetBasHeader				;--- 
 
 	jsr	VsyncOff
 	jsr	VINTWait
-
+							;--- 既存ファイルNo.チェック
 	ldx	fileAmount
 	lda	fileNumber
 	bne	@FS10
 	stx	fileNumber
 	inc	fileAmount
-	lda	#$ff				; append file
+	lda	#$ff					; append file
 @FS10:
 	stx	tempzp+6
 
@@ -785,7 +785,7 @@ FileSave:
 	.addr	diskID
 	.addr	fileHeader
 	bne	@FSEnd
-
+							;--- ファイル数更新
 	lda	fileAmount
 	jsr	SetFileCount
 	.addr	diskID

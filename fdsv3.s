@@ -5,7 +5,7 @@
 .define	FILE		"FamilyBasicV3.nes"
 
 	.include	"nes.inc"
-	.include	"fds/fds.inc"
+	.include	"FDS/fds.inc"
 
 _Reset	=		$80ba
 pNmiTrampoline	= 	$ed
@@ -20,7 +20,7 @@ pNmiTrampoline	= 	$ed
 
 ; ------ FDS suport---------------------------
 .segment "FDS_PATCH"
-.include	"fds/fdslib.s"
+.include	"FDS/fdslib.s"
 
 ; ------ RAM Top $7fff -----------------------
 .segment "PATCH_0"

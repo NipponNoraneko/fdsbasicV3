@@ -1,10 +1,12 @@
-#include	<stdio.h>
-#include	<stdlib.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #define	NES_HEADER_SIZE		16
 
 //-----------------------------------------------------------------------------
-void usage( char * sProgName) {
+void
+usage( char * sProgName)
+{
 	printf( "\n%s ver 1.0 / Extract GAME0-3 from the Family Basic V3 ROM.\n\n", sProgName ) ;
 	printf ( " usege:\n" ) ;
 	printf( "\t%s filename \n\n", sProgName ) ;
@@ -13,7 +15,8 @@ void usage( char * sProgName) {
 }
 
 //-----------------------------------------------------------------------------
-int	main( int argv, char **argc )
+int
+main( int argv, char **argc )
 {
 	FILE		*fpr, *fpw  ;
 	int		i, j ;
@@ -31,8 +34,7 @@ int	main( int argv, char **argc )
 	//----------------------------------------------------------------------
 	inFileName = argc[1] ;
 	fpr = fopen( inFileName, "r" ) ;
-	if (NULL != fpr) 
-	{
+	if (NULL != fpr) {
 		rCnt = fread( d, 1, sizeof(d), fpr ) ;
 		printf ( "File:%s: $%4X bytes readed\n", inFileName, rCnt ) ;
 	} else {
@@ -47,8 +49,7 @@ int	main( int argv, char **argc )
 	char	sOutFileName[10] ;
 	unsigned char	ucHeader[6] = { 'B', 'S', 0x06, 0x60, 0, 0 };
 	unsigned char	ucData ;
-	for ( i = 0 ; i < 4 ; i ++ )
-	{
+	for ( i = 0 ; i < 4 ; i ++ ) {
 		iBufPtr = NES_HEADER_SIZE + 3 + i*2 ; 
 		usEnd[i] = d[iBufPtr] + (d[iBufPtr+1] * 256) ;
 		ucHeader[4] = d[iBufPtr] ;
