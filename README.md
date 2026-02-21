@@ -3,7 +3,7 @@ https://github.com/NipponNoraneko/FC-DiskBASIC/tree/v3 から分離しました�
 今後はこのリポジトリを更新していきます。<br>
 
 最近の更新<BR>
-- [テル氏](https://x.com/teru72ig)のPAC-WORLDを同梱<br>
+- [テル](https://x.com/teru72ig)様のPAC-WORLDを同梱<br>
 - 許諾画面のスキップ<br>
 - fdsファイルの作成に [fdspacker](https://github.com/ClusterM/fdspakcker)を使用<br>
 - BASICファイルのLOAD/SAVE<br>
@@ -50,7 +50,7 @@ fdspacker pack fdsv3.json fdsv3.fds
 
 ## 謝辞
 - PAC-WORLD<br>
-[テル氏](https://x.com/teru72ig)より 同梱の許可をいただきました。
+[テル](https://x.com/teru72ig)様より 同梱の許可をいただきました。
 - 許諾画面スキップ<br>
   - Forum discussion:<br> https://forums.nesdev.org/viewtopic.php?t=25171
   - Github bbbradsmith/NES-ca65-example<br> https://github.com/bbbradsmith/NES-ca65-example/tree/fds
