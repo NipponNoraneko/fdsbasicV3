@@ -1,17 +1,20 @@
 # [WIP] *Family BASIC V3 on Disk System*
 https://github.com/NipponNoraneko/FC-DiskBASIC/tree/v3 から分離しました。<br>
-今後はこのリポジトリを更新していきます。<br><br>
-以前の公開時から以下の内容を追加・変更しました。
+今後はこのリポジトリを更新していきます。<br>
+
+最近の更新<BR>
+- [テル氏](https://x.com/teru72ig)のPAC-WORLDを同梱<br>
 - 許諾画面のスキップ<br>
-- fdsファイルの作成に fdspackerを使用<br>
+- fdsファイルの作成に [fdspacker](https://github.com/ClusterM/fdspakcker)を使用<br>
 - BASICファイルのLOAD/SAVE<br>
 
 ## Disk Systemで Family BASIC V3
-![fbv3d](img/fbv3_00.png)  ![FDSLIST](img/fcbasic_001.png "FDSLIST") ![MON](img/fdsv3_000.png "MON")
-
-### 追加した機能
+![fdsv3_001](img/fdsv3_001.png)
+![fdsv3_000](img/fdsv3_000.png)
+![fdsv3_002](img/fdsv3_002.png)
+### 追加機能
 1. ディスクカードアクセス(実験中)<br>
-現在は$6000から$6fffをBASICプログラムとして扱っています。今後仕様の変更を行いますので注意してください。
+現在は$6000から$6fffをBASICプログラムとして扱っています。今後仕様の変更を行いますのでご注意ください。
     - FDS<br>
     ディスクカードのファイル一覧を表示
     - FDSLIST<br>
@@ -23,13 +26,11 @@ https://github.com/NipponNoraneko/FC-DiskBASIC/tree/v3 から分離しました�
     ※ディスクカードの残量を見ていませんので、たくさんファイルを追加すると壊れます。
 
 2. 簡易モニタ(未完成)<BR>
-メモリ内容の表示・変更を行います。<br>
+メモリ内容の表示・変更<br>
   ■起動:　ダイレクトモードでMONと入力します。<br>
    MON<br>
- - D<br>
-メモリ・ダンプ
- - M<br>
-メモリ変更
+  . D :メモリ・ダンプ<br>
+  . M :メモリ変更<br>
 
 ## ビルド
 ### 準備
@@ -50,7 +51,8 @@ fdspacker pack fbv3d.json fbv3d.fds
 
 ## 謝辞
 - PAC-WORLD<br>
-[テル氏](https://x.com/teru72ig)同梱の許可をいただきました。
+[テル氏](https://x.com/teru72ig) 同梱の許可をいただきました。
 - 許諾画面スキップ<br>
   - Forum discussion:<br> https://forums.nesdev.org/viewtopic.php?t=25171
   - Github bbbradsmith/NES-ca65-example<br> https://github.com/bbbradsmith/NES-ca65-example/tree/fds
+
