@@ -40,9 +40,9 @@ https://github.com/NipponNoraneko/FC-DiskBASIC/tree/v3 から分離しました�
   
 ### 作成
 ```
-ca65 fbv3d.s
-ld65 -o fbv3d.bin -C fbv3d.cfg fbv3d.o
-fdspacker pack fbv3d.json fbv3d.fds
+ca65 fdsv3.s
+ld65 -o fdsv3.bin -C fdsv3.cfg fdsv3.o
+fdspacker pack fdsv3.json fdsv3.fds
 ```
 
 ## テスト/デバッグ環境
