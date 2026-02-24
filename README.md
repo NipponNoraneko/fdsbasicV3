@@ -3,7 +3,7 @@ https://github.com/NipponNoraneko/FC-DiskBASIC/tree/v3 から分離しました�
 今後はこのリポジトリを更新していきます。<br>
 
 最近の更新<BR>
-- [テル](https://x.com/teru72ig)様のPAC-WORLDを同梱<br>
+- [テル氏](https://x.com/teru72ig)のPAC-WORLDを同梱<br>
 - 許諾画面のスキップ<br>
 - fdsファイルの作成に [fdspacker](https://github.com/ClusterM/fdspakcker)を使用<br>
 - BASICファイルのLOAD/SAVE<br>
@@ -12,12 +12,13 @@ https://github.com/NipponNoraneko/FC-DiskBASIC/tree/v3 から分離しました�
 ![fdsv3_001](img/fdsv3_001.png)
 ![fdsv3_000](img/fdsv3_000.png)
 ![fdsv3_002](img/fdsv3_002.png)
-
 ### 追加機能
 1. ディスクカードアクセス(実験中)<br>
 現在は$6000から$6fffをBASICプログラムとして扱っています。今後仕様の変更を行いますのでご注意ください。
-    - FDS : ディスクカードのファイル一覧の表示
-    - FDSLIST : ディスクカードのファイル詳細の表示<br>
+    - FDS<br>
+    ディスクカードのファイル一覧を表示
+    - FDSLIST<br>
+ディスクカードのファイル詳細の表示<br>
     - FDSLOAD fileID<br>
     FDS/FDSLISTで表示されるIDを指定します。
     - FDSSAVE "filename"<br>
@@ -25,11 +26,15 @@ https://github.com/NipponNoraneko/FC-DiskBASIC/tree/v3 から分離しました�
     ※ディスクカードの残量を見ていませんので、たくさんファイルを追加すると壊れます。
 
 2. 簡易モニタ(未完成)<BR>
-メモリ内容の表示・変更<br>
-  ■起動:　ダイレクトモードでMONと入力します。<br>
+メモリ内容の表示・変更を行います。<br>
+  ■起動:　ダイレクトモードでMONと入力<br>
    MON<br>
-    - D :メモリ・ダンプ<br>
-    - M :メモリ変更<br>
+ - D<br>
+メモリ・ダンプ
+ - M<br>
+メモリ変更
+ - Q<br>
+終了
 
 ## ビルド
 ### 準備
@@ -40,17 +45,19 @@ https://github.com/NipponNoraneko/FC-DiskBASIC/tree/v3 から分離しました�
   
 ### 作成
 ```
-ca65 fdsv3.s
-ld65 -o fdsv3.bin -C fdsv3.cfg fdsv3.o
-fdspacker pack fdsv3.json fdsv3.fds
+ca65 fbv3d.s
+ld65 -o fbv3d.bin -C fbv3d.cfg fbv3d.o
+fdspacker pack fbv3d.json fbv3d.fds
 ```
 
 ## テスト/デバッグ環境
 - [Mesen2](https://www.mesen.ca/)
 
 ## 謝辞
+- [Micah Cowan's](https://github.com/micahcowan): GitHub [Family BASIC V3 逆アセンブル](https://github.com/micahcowan/fbdasm)
+- [TakuikaNinja's](https://github.com/TakuikaNinja): GitHub [FDS BIOS ROM 逆アセンブリ](https://github.com/TakuikaNinja/FDS-disksys)
 - PAC-WORLD<br>
-[テル](https://x.com/teru72ig)様より 同梱の許可をいただきました。
+[テル氏](https://x.com/teru72ig) 同梱の許可をいただきました。
 - 許諾画面スキップ<br>
   - Forum discussion:<br> https://forums.nesdev.org/viewtopic.php?t=25171
   - Github bbbradsmith/NES-ca65-example<br> https://github.com/bbbradsmith/NES-ca65-example/tree/fds
