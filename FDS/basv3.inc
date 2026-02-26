@@ -43,31 +43,40 @@ bgGetRam		=	$7c00
 PrintString		=	$895a
 WaitForNmiSubcommand	=	$896a
 NMI_DefaultHandler	=	$8971
+
 QueueOutputStr		=	$893c
 QueueNullForOutput	=	$894b
 QueueCharForOutput	=	$894d
 PrintOutBuf		=	$895d
+
 IsEndOfCmd		=	$849c
+
+TxtPtrGetCharAndIncr	=	$9088
+TxtPtrIncrAndGetChar	=	$9098
+TxtPtrIncr		=	$908c
 GetTxtChar		=	$90b2
-CmdFn_CLS_Scr1		=	$adfe
+TxtSkipSpaces		=	$90bf
+
 GetFileNameArg		=	$9e52
+FileNameCpyToLineBuffer	=	$9e9d
+
+SkipCommaOrSynErr	=	$ac14
+CmdFn_CLS_Scr1		=	$adfe
 InitPpuApu		=	$b3ab
 WaitForVBlank		=	$b42b
 PrintOneChar		=	$b575 
 DoCRLF			=	$b56f
+
 BasReadKeyboard		=	$b958
 ReadChar		=	$bc20
+
 KeyClick		=	$bcd5		; length zpMisc
 ShowCursor		=	$bc11
 HideCursor		=	$bc18
 Rkim_cancelFkeyAndReread=	$b93d
 ReadKeyInsMacros	=	$b945
 
-TxtPtrGetCharAndIncr	=	$9088
-TxtPtrIncrAndGetChar	=	$9098
-TxtPtrIncr		=	$908c
-
-
+EvalByteInteger		=	$a26e
 ;
 ;--- jtbl_CtrlCharInputHandlers
 ;

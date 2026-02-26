@@ -1,13 +1,13 @@
-; tab=8
+; ts=8
 ;------------------------------------------------------------------------------
 ;
 ;------------------------------------------------------------------------------
 zBufAddr	=	zpPokeAddr		; zpPokeAddrはPOKE以外で使われていない(多分)
 
 ;------------------------------------------------
-diskID		=	diskBuf+$0e
+diskID		=	diskInfoBlock+$0e
 fileAmount	=	diskID+$0a
-block03Buf	=	diskID+$0b
+lineBuffer80	=	lineBuffer+$80		; temp use: BASIC lineBuffer($500~)の後半部分
 
 ;------------------------------------------------------------------------------
 ;	SaveBasWork:	 BASIC領域の退避
@@ -44,6 +44,12 @@ RestoreBasWork:
 	sta	joypad,x
 	dex
 	bpl	@RBW10
+
+	lda	zpPpuMaskVal
+	sta	PPU_MASK
+	lda	zpPpuCtrlVal
+	ora	#$80
+	sta	PPU_CTRL
 RBEnd:
 	lda	#$27
 	sta	FDS_CTRL
@@ -72,10 +78,12 @@ SetPPU:
 	sta	PPU_CTRL
 	sta	PPU_CTRL_Mirror
 
-	lda	PPU_MASK_Mirror
-	ora	#$08
+	lda	zpPpuMaskVal
 	sta	PPU_MASK
 	sta	PPU_MASK_Mirror
+
+	lda	#$27
+	sta	FDS_CTRL
 
 	rts
 
@@ -178,6 +186,28 @@ FDSStart:
 	rts
 
 ;------------------------------------------------------------------------------
+;	SetReadCnt:
+;
+SetReadCnt1:
+	sta	readCnt
+	lda	#0
+	sta	readCnt+1
+
+	rts
+
+;------------------------------------------------------------------------------
+;	DecReadCnt:	readCnt - 1
+;
+DecReadCnt:
+	dec	readCnt
+	bne	@DRCEnd
+	lda	readCnt+1
+	beq	@DRCEnd
+	dec	readCnt+1
+@DRCEnd:
+	rts
+
+;------------------------------------------------------------------------------
 ;	ReadBlockNN:	one block read
 ;
 ;	IN	XY= read buffer address
@@ -188,18 +218,16 @@ FDSStart:
 ReadBlock01:
 	ldx	#>diskInfoBlock
 	ldy	#<diskInfoBlock
+
 	lda	#DISK_INFO_BLK_SIZE-1
-	sta	readCnt
-	lda	#0
-	sta	readCnt+1
+	jsr	SetReadCnt1
+
 	lda	#01
 	bne	ReadBlockNN
 
 ReadBlock03:
 	lda	#FILE_HDR_BLK_SIZE-1
-	sta	readCnt
-	lda	#0
-	sta	readCnt+1
+	jsr	SetReadCnt1
 
 	lda	#03
 ;	bne	ReadBlockNN
@@ -226,19 +254,6 @@ RBlk10:
 	rts
 
 ;------------------------------------------------------------------------------
-;	DecReadCnt
-;	readCnt - 1
-;
-DecReadCnt:
-	dec	readCnt
-	bne	@DRCEnd
-	lda	readCnt+1
-	beq	@DRCEnd
-	dec	readCnt+1
-@DRCEnd:
-	rts
-
-;------------------------------------------------------------------------------
 ;	SkipBlockNN
 ;	Skip reading Block
 ;
@@ -261,90 +276,140 @@ PutTotalFileSize:
 
 	rts
 
-PutHex2:
+
+;------------------------------------------------------------------------------
+;	ReadCardInfo:	カード情報取得
+;
+ReadCardInfo:
+	jsr	FDSStart
+
+	jsr	ReadBlock01				; Block 01
+
+	ldx	#>block03Buf
+	stx	zBufAddr+1
+	ldy	#<block03Buf
+	sty	zBufAddr
+
+							;----- Block 02 (ファイル数)
+	jsr	GetNumFiles
+	ldx	tempzp+6
+	stx	fileAmount
+	stx	fileCnt
+							;----- Block 03
+@FLLoop:
+	ldx	zBufAddr+1
+	ldy	zBufAddr
+	jsr	ReadBlock03				; Block 03 読込み
+							;--- Block 04 (Skip reading)
+							; block04バイト数
+	ldy	#$0c
+	lda	(zBufAddr),y
+	sta	readCnt
+	iny
+	lda	(zBufAddr),y
+	sta	readCnt+1
+
+	lda	#$04
+	jsr	SkipBlockNN				; Block 04読み飛ばし
+							;--- 次block03アドレス
+	lda	zBufAddr
+	clc
+	adc	#$10
+	bcc	@FL15
+
+	inc	zBufAddr+1
+@FL15:
+	sta	zBufAddr
+							;--- to Next block03
+	dec	fileCnt
+	bne	@FLLoop
+							;--- 終了
+	jsr	EndFDS
+
 	rts
+
+; in A,X
+PutHexDat:
+	stx	tmpX
+	clc
+	jsr	Bin2Hex
+	ldx	tmpX
+
+	lda	hexDat+1
+	sta	lineBuffer80,x
+	inx
+	lda	hexDat
+	sta	lineBuffer80,x
+	inx
+
+	rts
+
+tmpX:	.res	1
 
 ;------------------------------------------------------------------------------
 ;	MakeFileListLine:	詳細ファイル行作成
 ;
 MakeFileListLine:
-	lda	#' '
-	jsr	QueueCharForOutput
-						;--- file ID
-	ldy	#$01
-	lda	(tmpAccm),y
-	iny
-	jsr	Bin2HexQ
-	lda	#':'
-	jsr	QueueCharForOutput
-						;--- file name
-	ldy	#$02
-@MFL10:
-	lda	(tmpAccm),y
-	iny
-	jsr	QueueCharForOutput
-	cpy	#10
-	bne	@MFL10
+	ldx	#0
+	jsr	QueueFileName
 
 	lda	#' '
-	jsr	QueueCharForOutput
+	sta	lineBuffer80,x
+	inx
 						;--- store address	
-	iny
 	lda	(tmpAccm),y
-	jsr	Bin2HexQ
+	jsr	PutHexDat
+
 	dey
 	lda	(tmpAccm),y
-	jsr	Bin2HexQ
+	jsr	PutHexDat
 
 	lda	#' '
-	jsr	QueueCharForOutput
+	sta	lineBuffer80,x
+	inx
 						;--- file size
 	iny
 	iny
 	iny
 	lda	(tmpAccm),y
-	jsr	Bin2HexQ
+	jsr	PutHexDat
 	dey
 	lda	(tmpAccm),y
-	jsr	Bin2HexQ
+	jsr	PutHexDat
 
 	lda	#' '
-	jsr	QueueCharForOutput
+	sta	lineBuffer80,x
+	inx
 						;--- file type
 	iny
 	iny
 	lda	(tmpAccm),y
 	ora	#'0'
-	jsr	QueueCharForOutput
-						;--- padding
-	ldy	#$02
-@MFL20:
-	lda	#' '
-	jsr	QueueCharForOutput
-	dey
-	bne	@MFL20
+	sta	lineBuffer80,x
+	inx
 
 	rts
 
 ;------------------------------------------------------------------------------
 ;
 PrintFileLine:
-	lda	#<block03Buf
-	sta	tmpAccm
-	lda	#>block03Buf
-	sta	tmpAccm+1
+	jsr	SetBlk03Ptr
 
-	lda	#$10
-	sta	tmpAccm+2
-	lda	#0
-	sta	tmpAccm+3
+	lda	#<lineBuffer80
+	sta	zpOutputStr
+	lda	#>lineBuffer80
+	sta	zpOutputStr+1
+
+	ldx	#>block03Buf
+	stx	zBufAddr+1
+	ldy	#<block03Buf
+	sty	zBufAddr
 
 	ldx	fileAmount
 	stx	fileCnt
 @PFL10:
 	jsr	MakeFileListLine		; 表示行作成
-	jsr	QueueNullForOutput
-	jsr	PrintOutBuf
+	jsr	PrintString
 	jsr	DoCRLF
 	jsr	Add16
 
@@ -358,62 +423,14 @@ PrintFileLine:
 ;
 FileList:
 	jsr	VsyncOff
-	jsr	FDSStart
 
-	jsr	ReadBlock01				; Block 01
+	jsr	ReadCardInfo
 
-	ldx	#>block03Buf
-	stx	zBufAddr+1
-	ldy	#<block03Buf
-	sty	zBufAddr
-
-;----- Block 02 (ファイル数)
-	jsr	GetNumFiles
-	ldx	tempzp+6
-	stx	fileAmount
-	stx	fileCnt
-@FLLoop:
-;----- Block 03
-	ldx	zBufAddr+1
-	ldy	zBufAddr
-@FL09:
-	jsr	ReadBlock03				; Block 03 読込み
-
-;--- Block 04 (Skip reading)
-							;--- 読み込みバイト数
-	lda	zBufAddr
-	sta	joypad
-	lda	zBufAddr+1
-	sta	joypad+1
-
-	ldy	#$0c
-	lda	(joypad),y
-	sta	readCnt
-	iny
-	lda	(joypad),y
-	sta	readCnt+1
-
-	lda	#$04
-	jsr	SkipBlockNN				; Block 04読み飛ばし
-							;--- 次読み込みアドレス
-	lda	zBufAddr
-	clc
-	adc	#$10
-	bcc	@FL15
-
-	inc	zBufAddr+1
-@FL15:
-	sta	zBufAddr
-							;--- to Next block03
-	dec	fileCnt
-	bne	@FLLoop
-
-	jsr	EndFDS
-
-	lda	#$02
+	lda	#$02					; インデックス取得種別
 	sta	diskInfoStat
 
 	jsr	VsyncOn
+
 	jsr	PrintFileLine
 
 	rts
@@ -422,19 +439,14 @@ FileList:
 ;	LoadFile:
 ;
 LoadFile:
-;--- 引数チェック
-	jsr	IsEndOfCmd
-	beq	@LFErr				; ファイル番号なし
-	cmp	#$12				; 整数?
-	bne	@LFErr				; no
-
-
-	jsr	VsyncOff
-
-	jsr	TxtPtrIncrAndGetChar		;
+						;--- 引数チェック
+	jsr	EvalByteInteger
 	jsr	BIN2BCD
 	sta	loadList
-						;--- Read File
+	jsr	SearchFileID
+	bcs	@LFErr
+
+	jsr	VsyncOff
 	jsr	VINTWait
 	jsr	LoadFiles
 	.addr	diskID
@@ -442,9 +454,8 @@ LoadFile:
 	bne	@LFErr				; Error
 	
 	tya
-	beq	@LFErr				; 読み込んだファイルが無い
-
-;--- BASIC file check
+	beq	@LFErr				; ファイル無し
+						;--- BASIC file check
 	ldy	$6001
 	cpy	#'S'
 	bne	@LFEnd
@@ -471,6 +482,7 @@ LoadFile:
 	bpl	@LF50
 @LFErr:
 	jsr	QueueErrMsg
+	jsr	ShortBeep
 @LFEnd:
 	jsr	VsyncOn
 
@@ -484,146 +496,111 @@ loadList:
 sLoadFile:
 	.asciiz	"LOADING..."
 
-;------------------------------------------------------------------------------
-qFNptr	=	ReadBufX+1
-ReadBufX:
-	lda	qFNptr,x
-	rts
 
 ;------------------------------------------------------------------------------
 ;
+;		IN	X: col position
+;
 QueueFileName:
+	lda	#' '
+	sta	lineBuffer80,x
+	inx
 						;--- fileID
-	ldx	#$00
-	jsr	ReadBufX
-
-	clc
-	jsr	Bin2Hex
-	lda	hexDat+1
-	sta	sLineBuf,y
-	iny
-	lda	hexDat
-	sta	sLineBuf,y
-	iny
+	ldy	#$00
+	lda	(tmpAccm),y
+	jsr	PutHexDat
 
 	lda	#':'
-	sta	sLineBuf,y
-
-;--- file name
-	tya
-	clc
-	adc	#8
-	tay
-	ldx	#8
+	sta	lineBuffer80,x
+	inx
+						;--- file name
+	ldy	#1
 @QFN10:
-	jsr	ReadBufX
-	sta	sLineBuf,y
-	dey
-	dex
+	lda	(tmpAccm),y
+	bne	@QFN20
+	lda	#$20				; ' '
+@QFN20:
+	sta	lineBuffer80,x
+	inx
+	iny
+	cpy	#10-1
 	bne	@QFN10
 
-	tya
-	clc
-	adc	#10
-	tay
+	iny
 
 	rts
 
 ;------------------------------------------------------------------------------
 ClrLineBuf:
-	lda	#' '
-	ldx	#28-1
+	lda	#0
+	ldy	#28-1
 @CLB10:
-	sta	sLineBuf,x
-	dex
+	sta	lineBuffer80,y
+	dey
 	bpl	@CLB10
 
 	rts
 
 ;------------------------------------------------------------------------------
+;
 ShortFileList:
-	lda	#$00
+	lda	fileAmount
 	sta	fileCnt
 
-	lda	#<sLineBuf
+	lda	#<lineBuffer80
 	sta	zpOutputStr
-	lda	#>sLineBuf
+	lda	#>lineBuffer80
 	sta	zpOutputStr+1
 
-	ldx	#>block03Buf
-	stx	qFNptr+1
-	ldy	#<block03Buf
-	sty	qFNptr
-
-	ldy	#1
+	jsr	SetBlk03Ptr
+@SFL05:
+	jsr	ClrLineBuf
+	ldx	#0
+	lda	#2
 @SFL10:
+	pha
 	jsr	QueueFileName
 
-	lda	qFNptr
-	clc
-	adc	#$09
-	bcc	@SFL20
-	inc	qFNptr+1
-@SFL20:
-	sta	qFNptr
+	jsr	Add16
 
-	lda	fileCnt
-	and	#$01
-	beq	@SFL30
-
+	pla
+	dec	fileCnt
+	bne	@SFL30
+@SFLPrint:
 	jsr	PrintString
-	jsr	ClrLineBuf
+	jsr	DoCRLF
 
-	ldy	#1
+	rts
 @SFL30:
-	inc	fileCnt
-	lda	fileCnt
-	cmp	fileAmount
+	sec
+	sbc	#1
 	bne	@SFL10
 
-	and	#$01
-	beq	@SFLEnd
+	jsr	@SFLPrint
 
-	jsr	PrintString
-@SFLEnd:
-	rts
-
-;--------------------------------------------
-sLineBuf:
-	.asciiz	"                            "
-;	.asciiz	" hh:cccccccc hh:cccccccc    "
+	jmp	@SFL05
 
 ;------------------------------------------------------------------------------
 ;
 SetBlk03Ptr:
-						;--- diskInfoタイプ
-	lda	diskInfoStat
-	beq	@End
-	cmp	#1
-	bne	@SFN01
-						; GetDiskInfo
-	lda	#>block03Buf
-	sta	joypad+1
-	lda	#<block03Buf
-	sta	joypad
-
-	lda	#9
-	bne	@SFN05
-@SFN01:						; self scaned
+	pha
 	lda	#>(block03Buf+1)
-	sta	joypad+1
+	sta	tmpAccm+1
 	lda	#<(block03Buf+1)
-	sta	joypad
+	sta	tmpAccm
 
-	lda	#16
-@SFN05:						; set record size
-	sta	joypad+2
+						; set record size
+	lda	#$10
+	sta	tmpAccm+2
 	lda	#0
-	sta	joypad+3
-@End:
+	sta	tmpAccm+3
+	pla
 	rts
 
 ;------------------------------------------------------------------------------
+;	GetMaxFileID:	最大fileID
+;
+;		OUT	A: Max FileID
 ;
 GetMaxFileID:
 	jsr	SetBlk03Ptr
@@ -631,15 +608,39 @@ GetMaxFileID:
 	lda	#0
 	tay
 	ldx	fileAmount
-@L10:
-	cmp	(joypad),y
+@GMFLoop:
+	cmp	(tmpAccm),y
 	bpl	@J10
-	lda	(joypad),y
+	lda	(tmpAccm),y
 @J10:
 	jsr	Add16
 	dex
-	bne	@L10
+	bne	@GMFLoop
 
+	rts
+
+;------------------------------------------------------------------------------
+;	SearchFileID:
+;
+;		IN	A:file ID
+;		OUT	CY: set = not found
+;
+SearchFileID:
+	jsr	SetBlk03Ptr
+						;--- ファイルID比較
+	ldx	#0
+	ldy	#0
+@SFILoop:
+	cmp	(tmpAccm),y
+	clc
+	beq	@SFIEnd
+@SFINext:
+	jsr	Add16
+	
+	inx
+	cpx	fileAmount
+	bcc	@SFILoop
+@SFIEnd:
 	rts
 
 ;------------------------------------------------------------------------------
@@ -652,13 +653,13 @@ SearchFileName:
 	ldy	#8
 @SFNLoop:
 	lda	fileHeader,y
-	cmp	(joypad),y
+	cmp	(tmpAccm),y
 	bne	@SFNNext
 	dey
 	bne	@SFNLoop
 
 	stx	fileNumber
-	lda	(joypad),y			; file ID
+	lda	(tmpAccm),y			; file ID
 	tay
 	clc
 	bne	@End
@@ -683,7 +684,7 @@ SetBasHeader:
 						;--- copy file name
 	ldx	#8-1
 @fnLoop:
-	lda	lineBuffer+128,x
+	lda	lineBuffer80,x
 	bne	@fn10
 	lda	#' '
 @fn10:
@@ -757,6 +758,7 @@ FileSave:
 	jsr	VsyncOn
 	pla
 	jsr	QueueErrMsg
+
 	rts
 
 ;------------------------------------------------
@@ -783,19 +785,13 @@ GetCardInfo:
 	
 	jsr	VsyncOff
 
-	jsr	GetDiskInfo
-	.addr	diskID
-	bne	@GCI20			; if error
+	jsr	ReadCardInfo
 
 	jsr	VsyncOn
 
 	jsr	ShortFileList
 
-	ldx	#$01
-	stx	diskInfoStat
-	dex
-	txa
-@GCI20:
+	lda	#0
 	jsr	QueueErrMsg
 
 	rts
@@ -812,6 +808,34 @@ ErrNoCard:
 
 	jmp	CFDSEnd
 
+
+;------------------------------------------------------------------------------
+;	DeleteFile:
+;
+DeleteFile:
+	jsr	EvalByteInteger
+	jsr	BIN2BCD
+	cmp	#$10
+	bmi	@DFErr
+	jsr	SearchFileID
+	bcc	@DFEnd
+@DFErr:
+	jsr	ShortBeep
+@DFEnd:
+	rts
+
+;------------------------------------------------------------------------------
+;	RenameFile:
+;
+RenameFile:
+	jsr	EvalByteInteger
+	jsr	SkipCommaOrSynErr
+	jsr	GetFileNameArg
+	lda	zpHaveFNameArg
+	beq	@RFNoFN				; ファイル名無し
+@RFNoFN:
+@RFEnd:
+	rts
 
 ;------------------------------------------------------------------------------
 ;	ArgCheck:	引数チェック
@@ -855,8 +879,11 @@ tArg:
 	.addr	LoadFile
 	.byte	$a6				; SAVE
 	.addr	FileSave
+	.byte	$e7				; REN
+	.addr	RenameFile
+	.byte	$e8				; DELETE
+	.addr	DeleteFile
 	.byte	$ff
-
 
 ;------------------------------------------------------------------------------
 ;	CmdFDS:	FDSコマンド・エントリ
@@ -913,7 +940,8 @@ fileCnt:.res	1
 readCnt:.res	2
 ;------------------------------------------------
 diskInfoBlock:
-diskBuf:.res	$39+($10*$0f)
-
+	.res	DISK_INFO_BLK_SIZE
+block03Buf:
+	.res	FILE_HDR_BLK_SIZE * $10
 
 

@@ -7,7 +7,7 @@
 ;------------------------------------------------------------------------------
 diskInfoStat:						; DiskInfoBlock読込み状態
 	.byte	$00
-fdsBuf:	.addr	diskBuf
+fdsBuf:	.addr	diskInfoBlock
 loadFileType:
 	.byte	$00
 driveStat:						; ドライブ状態
@@ -189,26 +189,27 @@ Bin2HexQ:
 Bin2Hex:
 	pha
 	php
-	lsr		a
-	lsr		a
-	lsr		a
-	lsr		a
+	lsr	a
+	lsr	a
+	lsr	a
+	lsr	a
 	plp
-	jsr		B2H10
-	lda		hexDat
-	sta		hexDat+1
+	jsr	B2H10
+
+	lda	hexDat
+	sta	hexDat+1
 
 	pla
-	and		#$0f
+	and	#$0f
 B2H10:
 	php
 	tax
-	lda		tBinHex,x
-	sta		hexDat
+	lda	tBinHex,x
+	sta	hexDat
 	plp
-	bcc		@B2HEnd
+	bcc	@B2HEnd
 
-	jsr		QueueCharForOutput
+	jsr	QueueCharForOutput
 @B2HEnd:
 	rts
 
@@ -349,7 +350,7 @@ bypass:
 
 ;------------------------------------------------------------------------------
 
-.include	"pcg.s"
+;.include	"pcg.s"
 .include	"mon.s"
 .include	"token.s"
 
