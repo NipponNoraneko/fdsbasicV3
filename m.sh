@@ -4,17 +4,13 @@ set -e
 FILE_NAME="fdsv3"
 
 # 各種フラグ
-ASM_FLG="--debug-info"
-#LD_FLG="--dbgfile $FILE_NAME.dbg -Ln $FILE_NAME.lbl"
+ASM_FLG="-g"
 LD_FLG="--dbgfile $FILE_NAME.dbg"
 
 pack()
 {
 	echo "Packing..."
 	fdspacker pack $FILE_NAME.json $FILE_NAME.fds > /dev/null
-	if [ "$?" -ne 0 ]; then
-		echo	"Pakking Error"
-	fi
 }
 
 case "$1" in
