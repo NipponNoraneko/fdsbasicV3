@@ -1,4 +1,4 @@
-; tab=8
+; ts=8
 
 .debuginfo		on
 
@@ -14,15 +14,15 @@ pNmiTrampoline	= 	$ed
 .segment "CHR"
 	.incbin FILE, $10+$8000, $2000
 
-; -------------------------------------------
+; ----------------------------------------------
 .segment "PRG"
 	.incbin		FILE, $10, $5000
 
-; ------ FDS suport---------------------------
+; ------ FDS suport-----------------------------
 .segment "FDS_PATCH"
 .include	"FDS/fdslib.s"
 
-; ------ RAM Top $7fff -----------------------
+; ------ RAM Top $7fff -------------------------
 .segment "PATCH_0"
 	.byte	$7f
 
@@ -31,7 +31,13 @@ pNmiTrampoline	= 	$ed
 .segment "PATCH_2"
 	.byte	$80
 
-; ------ NS-HUBASIC Title  ------------------
+; ------ スタックの初期化を$00 -> $ffに  -------
+.segment "STACK_PATCH0"
+	.byte	$ff
+.segment "STACK_PATCH1"
+	.byte	$ff
+
+; ------ NS-HUBASIC Title  ---------------------
 .segment "PATCH_D1"
 	.byte	<strNS_HUDSON
 .segment "PATCH_D2"
@@ -50,6 +56,9 @@ pNmiTrampoline	= 	$ed
 .segment "BGGETPUT_PATCH4"
 	.byte <bgGetRam
 
+; ------ MON ------------------------------------
+.segment "ORG_TOKEN_AREA"
+.include "FDS/pcg.s"
 
 ; ------ RESET ----------------------------------
 .segment "RESET_PATCH"
