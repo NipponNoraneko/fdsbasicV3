@@ -3,6 +3,7 @@ https://github.com/NipponNoraneko/FC-DiskBASIC/tree/v3 から分離しました�
 今後はこのリポジトリを更新していきます。<br>
 
 最近の更新<BR>
+- ファイル削除: FDSDELコマンドを仮実装<br>
 - [テル氏](https://x.com/teru72ig)のPAC-WORLDを同梱<br>
 - 許諾画面のスキップ<br>
 - fdsファイルの作成に [fdspacker](https://github.com/ClusterM/fdspakcker)を使用<br>
