@@ -9,6 +9,10 @@ diskID		=	diskInfoBlock+$0e
 fileAmount	=	diskID+$0a
 lineBuffer80	=	lineBuffer+$80		; temp use: BASIC lineBuffer($500~)の後半部分
 
+;------------------------------------------------
+tmpX:	.res	1				; 苦し紛れ
+tmpY:	.res	1				; 苦し紛れ
+
 ;------------------------------------------------------------------------------
 ;	SaveBasWork:	 BASIC領域の退避
 ;
@@ -51,7 +55,7 @@ RestoreBasWork:
 	ora	#$80
 	sta	PPU_CTRL
 RBEnd:
-	lda	#$27
+	lda	#$27				; |H-SCRL|READ|M-OFF|NO-RESET|
 	sta	FDS_CTRL
 
 	rts
@@ -82,7 +86,7 @@ SetPPU:
 	sta	PPU_MASK
 	sta	PPU_MASK_Mirror
 
-	lda	#$27
+	lda	#$27				; $27: |H-SCRL|READ|M-OFF|NO-RESET|
 	sta	FDS_CTRL
 
 	rts
@@ -95,7 +99,7 @@ ResetFDS:
 						;----- BIOS Reset condition
 	lda	#$c0				; user NMI
 	sta	NMI_FLAG
-	lda	#$80
+	lda	#$80				; disk status
 	sta	IRQ_FLAG
 	lda	#$53
 	sta	RESET_TYPE
@@ -116,7 +120,8 @@ EndFDS:
 	sta	FDS_CTRL_Mirror
 
 	lda	#$c0
-	sta	IRQ_FLAG
+	sta	NMI_FLAG			; $DFFA(GAME2)
+	sta	IRQ_FLAG			; $DFFE
 
 	rts
 
@@ -282,25 +287,23 @@ PutTotalFileSize:
 ;
 ReadCardInfo:
 	jsr	FDSStart
-
-	jsr	ReadBlock01				; Block 01
-
-	ldx	#>block03Buf
-	stx	zBufAddr+1
-	ldy	#<block03Buf
-	sty	zBufAddr
-
+							;----- Block 01
+	jsr	ReadBlock01
 							;----- Block 02 (ファイル数)
 	jsr	GetNumFiles
 	ldx	tempzp+6
 	stx	fileAmount
 	stx	fileCnt
-							;----- Block 03
-@FLLoop:
+							;----- Info buffer addr set
+	ldx	#>block03Buf
+	stx	zBufAddr+1
+	ldy	#<block03Buf
+	sty	zBufAddr
+@RCILoop:						;----- Block 03
 	ldx	zBufAddr+1
 	ldy	zBufAddr
 	jsr	ReadBlock03				; Block 03 読込み
-							;--- Block 04 (Skip reading)
+							;--- Block 04 (スキップ)
 							; block04バイト数
 	ldy	#$0c
 	lda	(zBufAddr),y
@@ -315,20 +318,23 @@ ReadCardInfo:
 	lda	zBufAddr
 	clc
 	adc	#$10
-	bcc	@FL15
+	bcc	@RCI15
 
 	inc	zBufAddr+1
-@FL15:
+@RCI15:
 	sta	zBufAddr
 							;--- to Next block03
 	dec	fileCnt
-	bne	@FLLoop
+	bne	@RCILoop
 							;--- 終了
 	jsr	EndFDS
 
 	rts
 
-; in A,X
+;------------------------------------------------------------------------------
+;	PutHexDat:
+;		IN	A: bin data
+;			X: put position
 PutHexDat:
 	stx	tmpX
 	clc
@@ -343,8 +349,6 @@ PutHexDat:
 	inx
 
 	rts
-
-tmpX:	.res	1
 
 ;------------------------------------------------------------------------------
 ;	MakeFileListLine:	詳細ファイル行作成
@@ -387,6 +391,9 @@ MakeFileListLine:
 	ora	#'0'
 	sta	lineBuffer80,x
 	inx
+	lda	#0
+	sta	lineBuffer80,x
+	
 
 	rts
 
@@ -399,11 +406,6 @@ PrintFileLine:
 	sta	zpOutputStr
 	lda	#>lineBuffer80
 	sta	zpOutputStr+1
-
-	ldx	#>block03Buf
-	stx	zBufAddr+1
-	ldy	#<block03Buf
-	sty	zBufAddr
 
 	ldx	fileAmount
 	stx	fileCnt
@@ -446,7 +448,6 @@ LoadFile:
 	jsr	SearchFileID
 	bcs	@LFErr
 
-	jsr	VsyncOff
 	jsr	VINTWait
 	jsr	LoadFiles
 	.addr	diskID
@@ -464,8 +465,7 @@ LoadFile:
 	bne	@LFEnd
 
 	sty	loadFileType
-
-;--- Set zpTXTTAB,ZpTXTEND
+						;--- Set zpTXTTAB,ZpTXTEND
 	ldx	#$03
 @LF30:
 	lda	$6002,x
@@ -498,15 +498,18 @@ sLoadFile:
 
 
 ;------------------------------------------------------------------------------
+;	QueueFileName:
 ;
-;		IN	X: col position
+;	IN	X: col position
 ;
 QueueFileName:
+	ldx	#0
+
 	lda	#' '
 	sta	lineBuffer80,x
 	inx
 						;--- fileID
-	ldy	#$00
+	ldy	#$01
 	lda	(tmpAccm),y
 	jsr	PutHexDat
 
@@ -514,7 +517,7 @@ QueueFileName:
 	sta	lineBuffer80,x
 	inx
 						;--- file name
-	ldy	#1
+	ldy	#2
 @QFN10:
 	lda	(tmpAccm),y
 	bne	@QFN20
@@ -523,9 +526,10 @@ QueueFileName:
 	sta	lineBuffer80,x
 	inx
 	iny
-	cpy	#10-1
+	cpy	#10
 	bne	@QFN10
-
+	lda	#0
+	sta	lineBuffer80,x
 	iny
 
 	rts
@@ -542,6 +546,7 @@ ClrLineBuf:
 	rts
 
 ;------------------------------------------------------------------------------
+;	ShortFileList:
 ;
 ShortFileList:
 	lda	fileAmount
@@ -559,15 +564,25 @@ ShortFileList:
 	lda	#2
 @SFL10:
 	pha
+	ldy	#1
+	lda	(tmpAccm),y
+	bpl	@SFL20
+	pla
+	clc
+	adc	#1
+	pha
+	jmp	@SFL25
+@SFL20:
 	jsr	QueueFileName
-
+	jsr	PrintString
+@SFL25:
 	jsr	Add16
 
 	pla
 	dec	fileCnt
 	bne	@SFL30
 @SFLPrint:
-	jsr	PrintString
+;	jsr	PrintString
 	jsr	DoCRLF
 
 	rts
@@ -584,9 +599,9 @@ ShortFileList:
 ;
 SetBlk03Ptr:
 	pha
-	lda	#>(block03Buf+1)
+	lda	#>block03Buf
 	sta	tmpAccm+1
-	lda	#<(block03Buf+1)
+	lda	#<block03Buf
 	sta	tmpAccm
 
 						; set record size
@@ -595,6 +610,7 @@ SetBlk03Ptr:
 	lda	#0
 	sta	tmpAccm+3
 	pla
+
 	rts
 
 ;------------------------------------------------------------------------------
@@ -607,29 +623,36 @@ GetMaxFileID:
 
 	lda	#0
 	tay
+	iny
 	ldx	fileAmount
 @GMFLoop:
 	cmp	(tmpAccm),y
-	bpl	@J10
+	bcs	@J10
 	lda	(tmpAccm),y
 @J10:
 	jsr	Add16
 	dex
 	bne	@GMFLoop
 
+	cmp	#$80
+	bcc	@End
+	and	#$7f
+@End:
+
 	rts
 
 ;------------------------------------------------------------------------------
 ;	SearchFileID:
 ;
-;		IN	A:file ID
-;		OUT	CY: set = not found
+;	IN	A:file ID
+;	OUT	CY: set = not found
+;		X: 一致位置
 ;
 SearchFileID:
 	jsr	SetBlk03Ptr
 						;--- ファイルID比較
 	ldx	#0
-	ldy	#0
+	ldy	#1
 @SFILoop:
 	cmp	(tmpAccm),y
 	clc
@@ -644,29 +667,35 @@ SearchFileID:
 	rts
 
 ;------------------------------------------------------------------------------
+;	SearchFileName:
 ;
 SearchFileName:
 	jsr	SetBlk03Ptr
 						;--- ファイル名比較
 	ldx	#0
+	stx	fileNumber
 @SFN10:
-	ldy	#8
+	ldy	#9
+	ldx	#8
 @SFNLoop:
-	lda	fileHeader,y
+	lda	fileNumber,y
 	cmp	(tmpAccm),y
 	bne	@SFNNext
 	dey
+	dex
 	bne	@SFNLoop
-
-	stx	fileNumber
+						;--- ファイル名一致
 	lda	(tmpAccm),y			; file ID
+	and	#$7f				; 削除済ファイルの場合、復活させる
+	sta	fileID
 	tay
 	clc
 	bne	@End
 @SFNNext:
 	jsr	Add16
 	
-	inx
+	inc	fileNumber
+	ldx	fileNumber
 	cpx	fileAmount
 	bcc	@SFN10
 @End:
@@ -675,35 +704,6 @@ SearchFileName:
 ;------------------------------------------------------------------------------
 ;
 SetBasHeader:
-						;--- コマンド:ファイル名有無
-	jsr	GetFileNameArg
-	lda	zpHaveFNameArg
-	beq	@SBHEnd				; no file name
-
-	jsr	TxtPtrIncr
-						;--- copy file name
-	ldx	#8-1
-@fnLoop:
-	lda	lineBuffer80,x
-	bne	@fn10
-	lda	#' '
-@fn10:
-	sta	sFileName,x
-	dex
-	bpl	@fnLoop
-						;--- ファイル名チェック
-	jsr	SearchFileName
-	bcc	@fn20				; 有り
-						;--- 無し
-	jsr	GetMaxFileID
-
-	jsr	IncBCD
-	tay
-
-	ldx	#0
-@fn20:
-	sty	fileID				; file ID
-	stx	fileNumber
 						;--- file index "BS"
 	ldx	#1
 @SBH10:
@@ -728,22 +728,41 @@ sBS:	.byte	"BS"
 ;	FileSave:	ファイル・セーブ
 ;
 FileSave:
-	lda	#0
-	sta	fileNumber
+						;--- コマンド:ファイル名有無
+	jsr	GetFileNameArg
+	lda	zpHaveFNameArg
+	beq	@FSExit				; ファイル名無し
 
-	jsr	SetBasHeader				;--- 
+	jsr	TxtPtrIncr
+						;--- ファイル名コピー
+	ldx	#8-1
+@FSCopyLoop:
+	lda	lineBuffer80,x
+	cmp	#$20
+	bpl	@FSJ03
+	lda	#$20
+@FSJ03:
+	sta	sFileName,x
+	dex
+	bpl	@FSCopyLoop
+						;--- check save file name
+	jsr	SearchFileName
+	bcc	@FSJ05				; 有り
 
-	jsr	VsyncOff
-	jsr	VINTWait
-							;--- 既存ファイルNo.チェック
-	ldx	fileAmount
-	lda	fileNumber
-	bne	@FS10
-	stx	fileNumber
+	jsr	GetMaxFileID			; 最大fileID
+	jsr	IncBCD
+	sta	fileID
 	inc	fileAmount
-	lda	#$ff					; append file
-@FS10:
-	stx	tempzp+6
+	lda	fileAmount
+	lda	#$ff
+	sta	tempzp+14			; file append
+	sta	fileNumber
+@FSJ05:
+	jsr	SetBasHeader			;--- 
+
+	jsr	VINTWait
+
+	lda	fileNumber
 
 	jsr	WriteFile
 	.addr	diskID
@@ -757,8 +776,9 @@ FileSave:
 	pha
 	jsr	VsyncOn
 	pla
-	jsr	QueueErrMsg
 
+	jsr	QueueErrMsg
+@FSExit:
 	rts
 
 ;------------------------------------------------
@@ -768,7 +788,7 @@ fileHeader:
 fileID:
 	.byte	$84
 sFileName:
-	.byte	"TESTSAV3"
+	.byte	"TEMPSAVE"
 	.addr	$6000
 	.addr	$1000
 	.byte	$00
@@ -797,17 +817,47 @@ GetCardInfo:
 	rts
 
 ;------------------------------------------------------------------------------
-;	ErrNoCard:	DiskCard未挿入
+;	RewriteBlk03:
 ;
-ErrNoCard:
-	jsr	QueueErrMsg
-	jsr	ShortBeep
+RewriteBlk03:
+	jsr	FDSStart
+	jsr	VINTWait
+							;--- Block 01
+	jsr	ReadBlock01
+							;--- Block 02 (ファイル数)
+	jsr	GetNumFiles
+	ldx	tempzp+6
+	stx	fileAmount
+							;--- ファイルスキップ
+	lda	tmpX
+	sta	tempzp+6
+	jsr	SkipFiles
+							;--- set Info buffer addr
+;	ldx	#>block03Buf
+;	ldy	#<block03Buf
+;	jsr	ReadBlock03
+	lda	#03
+	jsr	WriteBlockType
 
-	lda	#$00
-	sta	diskInfoStat
+	ldy	#0
+	ldx	#FILE_HDR_BLK_SIZE-1
+@RB03Loop:
+	lda	(tmpAccm),y
+	stx	tmpX
+	jsr	XferByte
+	iny
+	ldx	tmpX
+	dex
+	bpl	@RB03Loop
 
-	jmp	CFDSEnd
+	jsr	XferDone
 
+	jsr	VsyncOn
+
+							;--- 終了
+	jsr	EndFDS
+
+	rts
 
 ;------------------------------------------------------------------------------
 ;	DeleteFile:
@@ -817,8 +867,17 @@ DeleteFile:
 	jsr	BIN2BCD
 	cmp	#$10
 	bmi	@DFErr
+
 	jsr	SearchFileID
-	bcc	@DFEnd
+	bcs	@DFEnd
+
+	stx	tmpX
+	ldy	#1
+	lda	(tmpAccm),y
+	ora	#$80
+	sta	(tmpAccm),y
+
+	jsr	RewriteBlk03
 @DFErr:
 	jsr	ShortBeep
 @DFEnd:
@@ -836,6 +895,19 @@ RenameFile:
 @RFNoFN:
 @RFEnd:
 	rts
+
+;------------------------------------------------------------------------------
+;	ErrNoCard:	DiskCard未挿入
+;
+ErrNoCard:
+	jsr	QueueErrMsg
+	jsr	ShortBeep
+
+	lda	#$00
+	sta	diskInfoStat
+
+	jmp	CFDSEnd
+
 
 ;------------------------------------------------------------------------------
 ;	ArgCheck:	引数チェック
