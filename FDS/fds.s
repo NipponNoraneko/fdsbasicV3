@@ -1,4 +1,4 @@
-; ts=8
+;ts=8
 ;------------------------------------------------------------------------------
 ;
 ;------------------------------------------------------------------------------
@@ -333,8 +333,10 @@ ReadCardInfo:
 
 ;------------------------------------------------------------------------------
 ;	PutHexDat:
-;		IN	A: bin data
-;			X: put position
+;
+;	IN	A: bin data
+;		X: put position
+;
 PutHexDat:
 	stx	tmpX
 	clc
@@ -410,9 +412,15 @@ PrintFileLine:
 	ldx	fileAmount
 	stx	fileCnt
 @PFL10:
+	ldy	#1
+	lda	(tmpAccm),y
+	asl	a
+	bcs	@PFL20
+	
 	jsr	MakeFileListLine		; 表示行作成
 	jsr	PrintString
 	jsr	DoCRLF
+@PFL20:
 	jsr	Add16
 
 	dec	fileCnt
