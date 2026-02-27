@@ -21,9 +21,12 @@ https://github.com/NipponNoraneko/FC-DiskBASIC/tree/v3 から分離しました�
     - FDSLIST<br>
 ディスクカードのファイル詳細の表示<br>
     - FDSLOAD fileID<br>
-    FDS/FDSLISTで表示されるIDを指定します。
+    BASICプログラムを読み込みます。引数にはFDS/FDSLISTで表示されるfileIDを指定します。
     - FDSSAVE "filename"<br>
-    ファイル名を指定します。ファイル名が同じ場合は上書きされます。<br>
+    BASICプログラムを保存します。ファイル名が同じ場合は上書きされます。<br>
+    - FDSDEL fileID<br>
+    ファイルを削除します。引数にはFDS/FDSLISTで表示されるfileIDを指定します。<br>
+    
     ※ディスクカードの残量を見ていませんので、たくさんファイルを追加すると壊れます。
 
 2. 簡易モニタ(未完成)<BR>
@@ -55,11 +58,11 @@ fdspacker pack fbv3d.json fbv3d.fds
 - [Mesen2](https://www.mesen.ca/)
 
 ## 謝辞
-- [Micah Cowan's](https://github.com/micahcowan): GitHub [Family BASIC V3 逆アセンブル](https://github.com/micahcowan/fbdasm)
-- [TakuikaNinja's](https://github.com/TakuikaNinja): GitHub [FDS BIOS ROM 逆アセンブリ](https://github.com/TakuikaNinja/FDS-disksys)
+- [Micah Cowan](https://github.com/micahcowan)'s: GitHub [Family BASIC V3 逆アセンブル](https://github.com/micahcowan/fbdasm)
+- [TakuikaNinja](https://github.com/TakuikaNinja)'s: GitHub [FDS BIOS ROM 逆アセンブリ](https://github.com/TakuikaNinja/FDS-disksys)
 - PAC-WORLD<br>
 [テル氏](https://x.com/teru72ig) 同梱の許可をいただきました。
 - 許諾画面スキップ<br>
   - Forum discussion:<br> https://forums.nesdev.org/viewtopic.php?t=25171
   - Github bbbradsmith/NES-ca65-example<br> https://github.com/bbbradsmith/NES-ca65-example/tree/fds
-
+- [ClusterM](https://github.com/ClusterM)'s: GitHub [fdspacker](https://github.com/ClusterM/fdspacker)
