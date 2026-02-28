@@ -332,6 +332,17 @@ ReadCardInfo:
 	rts
 
 ;------------------------------------------------------------------------------
+;	SetStrBufPtr:
+;
+SetStrBufPtr:
+	lda	#<lineBuffer80
+	sta	zpOutputStr
+	lda	#>lineBuffer80
+	sta	zpOutputStr+1
+
+	rts
+
+;------------------------------------------------------------------------------
 ;	PutHexDat:
 ;
 ;	IN	A: bin data
@@ -404,10 +415,7 @@ MakeFileListLine:
 PrintFileLine:
 	jsr	SetBlk03Ptr
 
-	lda	#<lineBuffer80
-	sta	zpOutputStr
-	lda	#>lineBuffer80
-	sta	zpOutputStr+1
+	jsr	SetStrBufPtr
 
 	ldx	fileAmount
 	stx	fileCnt
@@ -560,10 +568,7 @@ ShortFileList:
 	lda	fileAmount
 	sta	fileCnt
 
-	lda	#<lineBuffer80
-	sta	zpOutputStr
-	lda	#>lineBuffer80
-	sta	zpOutputStr+1
+	jsr	SetStrBufPtr
 
 	jsr	SetBlk03Ptr
 @SFL05:
@@ -805,26 +810,6 @@ sFileName:
 
 
 ;------------------------------------------------------------------------------
-;	GetCardInfo:	DiskInfoBlock取得
-;
-GetCardInfo:
-	jsr	SenceCard
-	bne	ErrNoCard
-	
-	jsr	VsyncOff
-
-	jsr	ReadCardInfo
-
-	jsr	VsyncOn
-
-	jsr	ShortFileList
-
-	lda	#0
-	jsr	QueueErrMsg
-
-	rts
-
-;------------------------------------------------------------------------------
 ;	RewriteBlk03:
 ;
 RewriteBlk03:
@@ -841,9 +826,6 @@ RewriteBlk03:
 	sta	tempzp+6
 	jsr	SkipFiles
 							;--- set Info buffer addr
-;	ldx	#>block03Buf
-;	ldy	#<block03Buf
-;	jsr	ReadBlock03
 	lda	#03
 	jsr	WriteBlockType
 
@@ -895,13 +877,58 @@ DeleteFile:
 ;	RenameFile:
 ;
 RenameFile:
-	jsr	EvalByteInteger
+	jsr	EvalByteInteger			; fileID
+	jsr	BIN2BCD
+	cmp	#$10
+	bmi	@RFErr
+
+	jsr	SearchFileID
+	bcs	@RFErr
+	stx	tmpX				; save file number
+
 	jsr	SkipCommaOrSynErr
 	jsr	GetFileNameArg
 	lda	zpHaveFNameArg
-	beq	@RFNoFN				; ファイル名無し
-@RFNoFN:
+	beq	@RFErr				; ファイル名無し
+						;--- ファイル名コピー
+	ldy	#$09
+	ldx	#8-1
+@RFLoop:
+	lda	lineBuffer80,x
+	cmp	#$20
+	bcs	@RFJ10
+
+	lda	#$20
+@RFJ10:
+	sta	(tmpAccm),y
+	dey
+	dex
+	bpl	@RFLoop
+
+	jsr	RewriteBlk03
+@RFErr:
+	jsr	ShortBeep
 @RFEnd:
+	rts
+
+;------------------------------------------------------------------------------
+;	GetCardInfo:	DiskInfoBlock取得
+;
+GetCardInfo:
+	jsr	SenceCard
+	bne	ErrNoCard
+	
+	jsr	VsyncOff
+
+	jsr	ReadCardInfo
+
+	jsr	VsyncOn
+
+	jsr	ShortFileList
+
+	lda	#0
+	jsr	QueueErrMsg
+
 	rts
 
 ;------------------------------------------------------------------------------
