@@ -25,8 +25,12 @@ https://github.com/NipponNoraneko/FC-DiskBASIC/tree/v3 から分離しました�
     BASICプログラムを読み込みます。引数にはFDS/FDSLISTで表示されるfileIDを指定します。
     - FDSSAVE "filename"<br>
     BASICプログラムを保存します。ファイル名が同じ場合は上書きされます。<br>
+    ファイル名は8文字まで。長い場合は先頭の8文字のみ有効。短い場合はスペースで埋められます。
     - FDSDEL fileID<br>
     ファイルを削除します。引数にはFDS/FDSLISTで表示されるfileIDを指定します。<br>
+    - FDSREN fileID,"new filename"<br>
+    ファイル名を変更します。第一引数にはFDS/FDSLISTで表示されるfileIDを指定します<br>
+    ファイル名は8文字まで。長い場合は先頭の8文字のみ有効。短い場合はスペースで埋められます。<br>
     
     ※ディスクカードの残量を見ていませんので、たくさんファイルを追加すると壊れます。
 
