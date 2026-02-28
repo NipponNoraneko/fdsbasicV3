@@ -3,6 +3,7 @@ https://github.com/NipponNoraneko/FC-DiskBASIC/tree/v3 から分離しました�
 今後はこのリポジトリを更新していきます。<br>
 
 最近の更新<BR>
+- ファイルリネーム: FDSRENコマンドを仮実装<br>
 - ファイル削除: FDSDELコマンドを仮実装<br>
 - [テル氏](https://x.com/teru72ig)のPAC-WORLDを同梱<br>
 - 許諾画面のスキップ<br>
@@ -19,7 +20,7 @@ https://github.com/NipponNoraneko/FC-DiskBASIC/tree/v3 から分離しました�
     - FDS<br>
     ディスクカードのファイル一覧を表示
     - FDSLIST<br>
-ディスクカードのファイル詳細の表示<br>
+ディスクカードのファイル詳細を表示<br>
     - FDSLOAD fileID<br>
     BASICプログラムを読み込みます。引数にはFDS/FDSLISTで表示されるfileIDを指定します。
     - FDSSAVE "filename"<br>
@@ -33,11 +34,11 @@ https://github.com/NipponNoraneko/FC-DiskBASIC/tree/v3 から分離しました�
 メモリ内容の表示・変更を行います。<br>
   ■起動:　ダイレクトモードでMONと入力<br>
    MON<br>
- - D<br>
+  - D<br>
 メモリ・ダンプ
- - M<br>
+  - M<br>
 メモリ変更
- - Q<br>
+  - Q<br>
 終了
 
 ## ビルド
