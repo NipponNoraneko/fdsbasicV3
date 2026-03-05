@@ -26,10 +26,10 @@ SaveBasWork:
 	dex
 	bpl	@SBW10
 						;--- PPU setting
-	lda	zpPpuMaskVal
-	sta	PPU_MASK_Mirror
 	lda	zpPpuCtrlVal
 	sta	PPU_CTRL_Mirror
+	lda	zpPpuMaskVal
+	sta	PPU_MASK_Mirror
 
 	jsr	RBEnd
 	sta	FDS_CTRL_Mirror
@@ -49,44 +49,13 @@ RestoreBasWork:
 	dex
 	bpl	@RBW10
 
-	lda	zpPpuMaskVal
-	sta	PPU_MASK
 	lda	zpPpuCtrlVal
 	ora	#$80
 	sta	PPU_CTRL
-RBEnd:
-	lda	#$27				; |H-SCRL|READ|M-OFF|NO-RESET|
-	sta	FDS_CTRL
-
-	rts
-
-;------------------------------------------------------------------------------
-VsyncOn:
-	lda	#$c0
-	sta	NMI_FLAG
-
-	lda	PPU_CTRL_Mirror
-	ora	#$80
-	bne	SetPPU
-
-;------------------------------------------------
-VsyncOff:
-	lda	#$00
-	sta	NMI_FLAG
-
-	lda	PPU_CTRL_Mirror
-	and	#$7f
-
-;------------------------------------------------
-SetPPU:
-	sta	PPU_CTRL
-	sta	PPU_CTRL_Mirror
-
 	lda	zpPpuMaskVal
 	sta	PPU_MASK
-	sta	PPU_MASK_Mirror
-
-	lda	#$27				; $27: |H-SCRL|READ|M-OFF|NO-RESET|
+RBEnd:
+	lda	#$27				; |H-SCRL|READ|M-OFF|NO-RESET|
 	sta	FDS_CTRL
 
 	rts
@@ -458,11 +427,9 @@ FileList:
 ;
 LoadFile:
 						;--- 引数チェック
-	jsr	EvalByteInteger
-	jsr	BIN2BCD
+	jsr	Check1stArg
 	sta	loadList
-	jsr	SearchFileID
-	bcs	@LFErr
+	stx	tmpX
 
 	jsr	VINTWait
 	jsr	LoadFiles
@@ -507,11 +474,6 @@ LoadFile:
 ;--------------------------------------------
 loadList:
 	.byte	$81,$FF
-
-;--------------------------------------------
-sLoadFile:
-	.asciiz	"LOADING..."
-
 
 ;------------------------------------------------------------------------------
 ;	QueueFileName:
@@ -853,37 +815,35 @@ RewriteBlk03:
 ;	DeleteFile:
 ;
 DeleteFile:
-	jsr	EvalByteInteger
-	jsr	BIN2BCD
-	cmp	#$10
-	bmi	@DFErr
-
-	jsr	SearchFileID
-	bcs	@DFEnd
-
+	jsr	Check1stArg
 	stx	tmpX
+
+	lda	#STR_SURE
+	jsr	PutStr
+
+	jsr	GetOneChar
+	jsr	PrintOneChar
+	lda	readChar
+	cmp	#'Y'
+	bne	@DFEnd
+
 	ldy	#1
 	lda	(tmpAccm),y
 	ora	#$80
 	sta	(tmpAccm),y
 
 	jsr	RewriteBlk03
-@DFErr:
-	jsr	ShortBeep
 @DFEnd:
 	rts
+@DFErr:
+	jmp	ErrorIllegalValue
+
 
 ;------------------------------------------------------------------------------
 ;	RenameFile:
 ;
 RenameFile:
-	jsr	EvalByteInteger			; fileID
-	jsr	BIN2BCD
-	cmp	#$10
-	bmi	@RFErr
-
-	jsr	SearchFileID
-	bcs	@RFErr
+	jsr	Check1stArg
 	stx	tmpX				; save file number
 
 	jsr	SkipCommaOrSynErr
@@ -943,6 +903,21 @@ ErrNoCard:
 
 	jmp	CFDSEnd
 
+;------------------------------------------------------------------------------
+;	Check1stArg:
+;
+Check1stArg:
+	jsr	EvalByteInteger			; fileID
+	jsr	BIN2BCD
+	cmp	#$10
+	bmi	@C1AErr
+
+	jsr	SearchFileID
+	bcc	@C1AEnd
+@C1AErr:
+	jmp	ErrorIllegalValue
+@C1AEnd:
+	rts
 
 ;------------------------------------------------------------------------------
 ;	ArgCheck:	引数チェック

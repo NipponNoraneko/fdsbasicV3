@@ -27,19 +27,32 @@ zpPpuCtrlVal		=	$32
 zpPpuMaskVal		=	$33
 zpCH			=	$48		; Current cursor column number
 zpCV			=	$49		; Current cursor row number 
-zpOutputStr    		 =	$52		; Pointer to null-term'd string to be queued for output
-
+zpOutputStr		=	$52		; Pointer to null-term'd string to be queued for output
 zpRkimMidMacro		=	$66
+zpSavedCH		=	$6b
+zpSavedCV		=	$6c
+
+zpCtrlKeyDn		=	$6f		; Non-zero (#$FF) when control key is pressed
+zpShiftKeyDn		=	$70		; Non-zero (#$FF) when (either) shift key is pressed
+zpGrphKeyDn		=	$71		; Non-zero (#$FF) when GRPH key is pressed
+zpKanaFlag		=	$72		; Non-zero (#$FF) when kana mode is active
+
+zpPaletteNum		=	$9c
 
 zpHaveFNameArg		=	$ea		; true when LOAD was given a filename arg
 zpNmiTrampoline		=	$ed		; Contains a JMP instruction to the real NMI handler.
 						; It's set to: JMP $8971
+
+zpGameNum		=	$f3
+
 ;----- BASIC area
 oamBuffer		=	$0200
 lineBuffer		=	$0500
 bgGetRam		=	$7c00
 
 ;----- BASIC routine
+ErrorIllegalValue	=	$8494
+
 PrintString		=	$895a
 WaitForNmiSubcommand	=	$896a
 NMI_DefaultHandler	=	$8971
@@ -50,7 +63,6 @@ QueueCharForOutput	=	$894d
 PrintOutBuf		=	$895d
 
 IsEndOfCmd		=	$849c
-
 TxtPtrGetCharAndIncr	=	$9088
 TxtPtrIncrAndGetChar	=	$9098
 TxtPtrIncr		=	$908c
@@ -75,6 +87,8 @@ ShowCursor		=	$bc11
 HideCursor		=	$bc18
 Rkim_cancelFkeyAndReread=	$b93d
 ReadKeyInsMacros	=	$b945
+
+COLOR_SetPalette	=	$c4ff
 
 EvalByteInteger		=	$a26e
 ;

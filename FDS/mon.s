@@ -1,4 +1,4 @@
-; tab=8
+;ts=8
 
 zEditAddr	=	zpPokeAddr		; basic zp override
 						; zpPokeAddrはPOKE以外で使われていない(多分)
@@ -12,9 +12,10 @@ DOWN_KEY	=	$1f
 
 ;------------------------------------------------------------------------------
 ;	HexCharCheck:	
-;		IN:	A = Check code
-;		OUT:	CY=ON	not Hex Char
-;			  =OFF	Hex Char
+;
+;	IN:	A = Check code
+;	OUT:	CY=ON	not Hex Char
+;		  =OFF	Hex Char
 ;
 HexCharCheck:
 	cmp	#'0'
@@ -99,11 +100,8 @@ inputCharBuf:
 ;
 FromInput:
 							;---" FROM:$"
-	lda	#<sFrom
-	sta	zpOutputStr
-	lda	#>sFrom
-	sta	zpOutputStr+1
-	jsr	PrintString
+	lda	#STR_FROM
+	jsr	PutStr
 							;--- アドレス入力
 	lda	#4
 	sta	reqBytes
@@ -211,11 +209,8 @@ DumpBody:
 ;
 Dump:
 							;--- Put "DUMP"
-	lda	#<sDump
-	sta	zpOutputStr
-	lda	#>sDump
-	sta	zpOutputStr+1
-	jsr	PrintString
+	lda	#STR_DUMP
+	jsr	PutStr
 
 	jsr	FromInput				;--- アドレス入力
 	bcs	DumpErr					; 入力無し
@@ -327,11 +322,8 @@ ModifyMode:
 	lda	dirty
 	beq	@MM10
 							;--- "MODIFY"
-	lda	#<sModify
-	sta	zpOutputStr
-	lda	#>sModify
-	sta	zpOutputStr+1
-	jsr	PrintString
+	lda	#STR_MODIFY
+	jsr	PutStr
 
 	jsr	FromInput
 	bcs	@MMErr
@@ -561,20 +553,14 @@ dirty:	.res	1
 ;
 Fill:
 							;--- Put "FILL"
-	lda	#<sFill
-	sta	zpOutputStr
-	lda	#>sFill
-	sta	zpOutputStr+1
-	jsr	PrintString
+	lda	#STR_FILL
+	jsr	PutStr
 
 	jsr	FromInput
-	jsr	DoCRLF
 							;--- Put "TO:$"
-	lda	#<sTo
-	sta	zpOutputStr
-	lda	#>sTo
-	sta	zpOutputStr+1
-	jsr	PrintString
+	lda	#STR_TO
+	jsr	PutStr
+
 	lda	#4
 	sta	reqBytes
 	jsr	InputBytes
@@ -583,11 +569,8 @@ Fill:
 
 
 							;--- Put "VAL:$"
-	lda	#<sVal
-	sta	zpOutputStr
-	lda	#>sVal
-	sta	zpOutputStr+1
-	jsr	PrintString
+	lda	#STR_VAL
+	jsr	PutStr
 
 	lda	#2
 	sta	reqBytes
@@ -599,26 +582,6 @@ Fill:
 	clc
 
 	rts
-
-;--------------------------------------------------------
-sDump:	.asciiz		"DUMP"
-sModify:.asciiz		"MODIFY"
-sFill:	.asciiz		"FILL"
-sFrom:	.asciiz		" FROM:$"
-sTo:	.asciiz		"        TO:$"
-sVal:	.asciiz		"       VAL:$"
-
-GetOneChar:
-	jsr	ReadChar
-	ldx	zpRkimMidMacro
-	bne	GetOneChar
-
-	sta	readChar
-
-	rts
-
-readChar:
-	.res	1
 
 ;------------------------------------------------------------------------------
 ;	MonPrompt:

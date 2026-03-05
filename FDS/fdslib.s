@@ -18,6 +18,149 @@ strNS_HUDSON:
 .incbin	"datetime.s",0,10
 	.byte	$00
 
+
+;- PCG --------------------------------------
+editCharNo	=	$6b00
+oneCharBuf	=	$6b04
+charBuf		=	$6b14
+
+.ifdef aaa
+editCharNo:
+	.byte	$00, $01, $02, $03 
+
+charBuf:.res	8*8 
+
+oneCharBuf:
+	.res	16  
+.endif
+;------------------------------------------------------------------------------
+.enum
+	STR_SURE	=	0
+	STR_LOADING
+	STR_ERR
+	STR_DUMP
+	STR_MODIFY
+	STR_FILL
+	STR_FROM
+	STR_TO
+	STR_VAL
+	STR_PALLET
+.endenum
+
+;--------------------------------------------
+strTbl:
+	.addr	sAreYouSure
+	.addr	sLoadFile
+	.addr	sErr
+
+	.addr	sDump
+	.addr	sModify
+	.addr	sFill
+	.addr	sFrom
+	.addr	sTo
+	.addr	sVal
+
+	.addr	sPallet
+;--------------------------------------------
+sAreYouSure:
+;	.asciiz "ARE YOU SURE YOU WANT TO DELETE THE FILE?"
+	.asciiz "DELETE THIS FILE?"
+sLoadFile:
+	.asciiz "LOADING..."
+sErr:	.byte	"! ERR.",0
+;--------------------------------------------
+sDump:  .asciiz	"DUMP"
+sModify:.asciiz	"MODIFY"
+sFill:  .asciiz	"FILL"
+sFrom:  .asciiz	" FROM:$"
+sTo:    .asciiz	"        TO:$"
+sVal:   .asciiz	"       VAL:$"
+;--------------------------------------------
+sPallet:.byte	' ', ' ', $fd, $fe, $ff, ' ', $fd, $fe, $ff,0
+
+;------------------------------------------------------------------------------
+
+VsyncOn:
+	lda	#$c0
+	sta	NMI_FLAG
+VOn:
+	lda	PPU_CTRL_Mirror
+	ora	#$80
+	bne	SetPPU
+
+;------------------------------------------------
+VsyncOff:
+	lda	#$00
+	sta	NMI_FLAG
+VOff:
+	lda	PPU_CTRL_Mirror
+	and	#$7f
+
+;------------------------------------------------
+SetPPU:
+	sta	PPU_CTRL
+	sta	PPU_CTRL_Mirror
+
+	lda	zpPpuMaskVal
+	sta	PPU_MASK
+	sta	PPU_MASK_Mirror
+
+	lda	#$27				; $27: |H-SCRL|READ|M-OFF|NO-RESET|
+	sta	FDS_CTRL
+
+	rts
+
+;------------------------------------------------------------------------------
+SetPpuAddr:
+	stx	zActAddr+1
+	stx	PPU_ADDR
+	sta	zActAddr
+	sta	PPU_ADDR
+
+ResetScroll:
+	ldx	#0
+	stx	PPU_SCROLL
+	stx	PPU_SCROLL
+
+	rts
+
+;------------------------------------------------------------------------------
+;
+Buf2VRAM:
+	jsr	VOff
+	jsr	WaitVsync
+
+	lda	zActAddr+1
+	sta	PPU_ADDR
+	lda	zActAddr
+	sta	PPU_ADDR
+
+	jsr	ResetScroll
+
+	lda	lineBuffer80,x
+	beq	@B2VJ10
+@B2VLoop:
+	lda	lineBuffer80,x
+	beq	@B2VEnd
+@B2VJ10:
+	sta	PPU_DATA
+	inx
+	bne	@B2VLoop
+@B2VEnd:
+	rts
+
+;------------------------------------------------------------------------------
+;
+WaitVsync:
+	ldy	#1
+WaitVsyncY:
+	bit	PPU_STATUS
+	bpl	WaitVsyncY
+	dey
+	bne	WaitVsyncY
+
+	rts
+
 ;------------------------------------------------------------------------------
 ;
 _ResetPatch:
@@ -28,18 +171,13 @@ _ResetPatch:
 	sta	PPU_MASK
 							;--- Wait V-SYNC 3Times
 	ldy	#$03
-@RP10:
-	bit	PPU_STATUS
-	bpl	@RP10
-	dey
-	bne	@RP10
+	jsr	WaitVsyncY
 
 	sty	diskInfoStat
 
 	lda	#$27					; $27: |H-SCRL|READ|M-OFF|NO-RESET|
 	sta	FDS_CTRL
 	sta	FDS_CTRL_Mirror
-
 	jsr	InitPpuApu
 
 	lda	#>NMI
@@ -50,6 +188,7 @@ _ResetPatch:
 	rts
 
 ;------------------------------------------------------------------------------
+;	NMI:
 NMI:
 	pha
 	lda	FDS_DRIVE_STATUS
@@ -68,67 +207,55 @@ ShortBeep:
 	rts
 
 ;------------------------------------------------------------------------------
-;	Wait
+;	GetOneChar:
 ;
-;		Ret:	Y = 0
-WaitYff:
-	lda	#$ff
-@WaitJ10:
-	clc
-	adc	#$ff
-	bne	@WaitJ10
+GetOneChar:
+	jsr	ReadChar
+	ldx	zpRkimMidMacro
+	bne	GetOneChar
 
-	dey
-	bne	WaitYff
+	sta	readChar
 
 	rts
 
+readChar:
+	.res    1   
 
 ;------------------------------------------------------------------------------
-;	QueueStr:
+;	PutStr:
 ;
-;		IN		XY = strings address
-;				 X: address Hi
-;				 Y: address Low
+;	IN	A: string numer
 ;
-strAddr	=	QS10+1
-QueueStr:
-	stx	strAddr+1
-	sty	strAddr
-	ldy	#$00
-QS10:
-	lda	QS10,y
-	beq	@QSEnd
+PutStr:
+	asl	a
+	tax
+	lda	strTbl,x
+	sta	zpOutputStr
+	inx
+	lda	strTbl,x
+	sta	zpOutputStr+1
 
-	jsr	QueueCharForOutput
+	jsr	PrintString
 
-	iny
-	jmp	QS10
-@QSEnd:
 	rts
-
 
 ;------------------------------------------------------------------------------
 ;	QueueErrMsg:	
 ;
-;		IN		A = error No.
+;	IN	A = error No.
 ;
 QueueErrMsg:
 	ora	#$00
 	beq	@QEEnd
 
-	pha
-	ldx	#>sErr
-	ldy	#<sErr
-	jsr     QueueStr
-	pla
+	lda	#STR_ERR
+	jsr	PutStr
 
 	jsr	Bin2HexQ
 
 @QEEnd:
 	rts
 
-sErr:	.byte	"! ERR.",0
 
 ;------------------------------------------------------------------------------
 ;	IncBCD:

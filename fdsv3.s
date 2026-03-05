@@ -43,6 +43,9 @@ pNmiTrampoline	= 	$ed
 .segment "PATCH_D2"
 	.byte	>strNS_HUDSON
 
+; ------ Shift Key Map Swap --------------------
+.segment "SHIFT_KEY_MAP"
+.include "FDS/ShiftKeyMap.s"
 
 ; ------ BGPUT, BGGET address ------------------
 .segment "BGGETPUT_PATCH0"
@@ -83,6 +86,11 @@ pNmiTrampoline	= 	$ed
 	.addr	tCommandAddr
 .segment "FUNCADDR_PATCH7"
 	.addr	tCommandAddr+1
+
+.segment "FUNCADDR_PATCH8"
+	.addr	tFunctionPtr
+.segment "FUNCADDR_PATCH9"
+	.addr	tFunctionPtr+1
 
 ;------ Interrupt vectors -------------------------
 .segment "VECTORS_PATCH"

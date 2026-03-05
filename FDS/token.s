@@ -142,7 +142,7 @@ tCommandAddr:
 	.addr	DATA_REM			;
 	.addr	STOP				;
 	.addr	CONT				;
-	.addr	LAE0A				;
+	.addr	CLS				;
 	.addr	CLEAR				;
 	.addr	ON				;
 	.addr	ErrorSyntax			; OFF
