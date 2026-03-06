@@ -447,8 +447,6 @@ Edit8x8:
 @Exit:
 	rts
 
-;preChar:.res	1
-
 ;------------------------------------------------------------------------------
 ;	KeyAct:
 ;
@@ -457,7 +455,6 @@ Edit8x8:
 KeyAct:
 	tay
 	ldx	#0
-;	stx	preChar
 @KeyActLoop:
 	lda	#$ff
 	cmp	keyActTbl,x
@@ -581,6 +578,8 @@ CurUpdateEnd:
 
 	rts
 
+.byte	">>"
+
 .segment	"OLD_GAME_COMMAND"
 ;------------------------------------------------------------------------------
 ;	CLS2:
@@ -703,6 +702,7 @@ xferEditTbl:
 xferRestoreTbl:
 	.byte	$80|PCG_WRITE, $0f, 8, <$6c00, >$6c00		; $0f80~$0fff <- $6c00~ OBJ:F0~FF
 	.byte	$80|PCG_WRITE, $1f, 8, <$6c80, >$6c80		; $1f80~$1fff <- $6c80~ BG:F0~FF
+
 ;------------------------------------------------------------------------------
 ;	FlipBgObj:
 ;
@@ -749,31 +749,18 @@ UpdateDisp:
 ;------------------------------------------------------------------------------
 ;	CmdPCG:
 CmdPCG:
+	jsr	SaveBasWork
+
 	lda	#$fc
 	sta	zpCursorChar
 
 	jsr	CmdFn_SPRITE_ON
 
-	jsr	SaveBasWork
-
-	jsr	VOff
-	lda	#$00
-	sta	PPU_MASK
-	sta	$100
-	jsr	VINTWait
-
-	jsr	RestoreBasWork
-
-	jsr	VOn
-	lda	zpPpuMaskVal
-	sta	PPU_MASK
-
-
 	lda	#$c0
 	sta	$100
-						;--- キャラクタ一覧表示
+
 	jsr	SetStrBufPtr
-						;--- パレット表示
+
 	lda	#0
 	sta	paletNo
 	sta	palNum
@@ -784,8 +771,6 @@ CmdPCG:
 
 	jsr	Edit8x8
 @Exit:						;--- 終了
-	jsr	SaveBasWork
-
 	jsr	VOff
 	lda	#$00
 	sta	PPU_MASK
@@ -798,7 +783,6 @@ CmdPCG:
 	lda	zpPpuMaskVal
 	sta	PPU_MASK
 
-	jsr	RestoreBasWork
 	lda	#$fd
 	sta	zpCursorChar
 
@@ -807,6 +791,8 @@ CmdPCG:
 
 	lda	#$20
 	jsr	CLS2
+
+	jsr	RestoreBasWork
 PCGEND:
 	rts
 

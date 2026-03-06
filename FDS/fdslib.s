@@ -24,15 +24,6 @@ editCharNo	=	$6b00
 oneCharBuf	=	$6b04
 charBuf		=	$6b14
 
-.ifdef aaa
-editCharNo:
-	.byte	$00, $01, $02, $03 
-
-charBuf:.res	8*8 
-
-oneCharBuf:
-	.res	16  
-.endif
 ;------------------------------------------------------------------------------
 .enum
 	STR_SURE	=	0
@@ -100,7 +91,7 @@ VOff:
 SetPPU:
 	sta	PPU_CTRL
 	sta	PPU_CTRL_Mirror
-	sta	zpPpuCtrlVal
+	;sta	zpPpuCtrlVal
 
 	lda	zpPpuMaskVal
 	sta	PPU_MASK

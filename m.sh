@@ -5,12 +5,16 @@ FILE_NAME="fdsv3"
 
 # 各種フラグ
 ASM_FLG="-g"
-LD_FLG="--dbgfile $FILE_NAME.dbg"
+LD_FLG="--dbgfile $FILE_NAME.dbg -Ln $FILE_NAME.lbl"
+#LD_FLG="--dbgfile $FILE_NAME.dbg"
 
 pack()
 {
 	echo "Packing..."
-	fdspacker pack $FILE_NAME.json $FILE_NAME.fds > /dev/null
+	fdspacker pack $FILE_NAME.json $FILE_NAME.fds
+	if [ "$?" -ne 0 ]; then
+		echo	"Pakking Error"
+	fi
 }
 
 case "$1" in
@@ -26,7 +30,7 @@ case "$1" in
 		;;
 	*)
 		# ビルド日時タイトル表示用
-		#date +"%y%m%d%H%M" > datetime.s
+		date +"%y%m%d%H%M" > datetime.s
 
 		echo "Assembling..."
 		ca65 $FILE_NAME.s -g $ASM_FLG
