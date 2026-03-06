@@ -1,4 +1,4 @@
-# [WIP] *Family BASIC V3 on Disk System*
+# [WIP] *FAMILY BASIC V3 on Famicom Disk System*
 https://github.com/NipponNoraneko/FC-DiskBASIC/tree/v3 から分離しました。<br>
 今後はこのリポジトリを更新していきます。<br>
 
