@@ -14,7 +14,6 @@ zpTXTPTR		=	$09
 zpMisc			=	$19
 zpVARTAB		=	$1d
 zpVAREND		=	$1f
-
 zpPokeAddr		=	$25		; 2bytes: POKE文でのみ使用(たぶん)
 zpWAccum		=	$28    		; 4bytes: Like a 16-bit Accumulator.
 						; Forms both the first operand, and the result,
@@ -32,12 +31,17 @@ zpRkimMidMacro		=	$66
 zpSavedCH		=	$6b
 zpSavedCV		=	$6c
 
+zpCursorChar		=	$61
+
 zpCtrlKeyDn		=	$6f		; Non-zero (#$FF) when control key is pressed
 zpShiftKeyDn		=	$70		; Non-zero (#$FF) when (either) shift key is pressed
 zpGrphKeyDn		=	$71		; Non-zero (#$FF) when GRPH key is pressed
 zpKanaFlag		=	$72		; Non-zero (#$FF) when kana mode is active
+zpCursFlashCtr		=	$74
 
 zpPaletteNum		=	$9c
+
+zpKanaCursChr		=	$e0
 
 zpHaveFNameArg		=	$ea		; true when LOAD was given a filename arg
 zpNmiTrampoline		=	$ed		; Contains a JMP instruction to the real NMI handler.
@@ -74,11 +78,11 @@ FileNameCpyToLineBuffer	=	$9e9d
 
 SkipCommaOrSynErr	=	$ac14
 CmdFn_CLS_Scr1		=	$adfe
+ClearOam		=	$aee8
 InitPpuApu		=	$b3ab
 WaitForVBlank		=	$b42b
 PrintOneChar		=	$b575 
 DoCRLF			=	$b56f
-
 BasReadKeyboard		=	$b958
 ReadChar		=	$bc20
 
@@ -115,3 +119,4 @@ CursorUp		=	$b8fa		;Control-^
 CursorDown		=	$b8fc		;Control-_
 ControlCharNOOP		=	$b8f4
 
+CmdFn_SPRITE_ON		=	$afc9

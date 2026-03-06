@@ -1,6 +1,6 @@
 ; ts=8
 
-.debuginfo		on
+;.debuginfo		on
 
 .define	FILE		"FamilyBasicV3.nes"
 

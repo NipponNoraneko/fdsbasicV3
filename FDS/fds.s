@@ -28,6 +28,7 @@ SaveBasWork:
 						;--- PPU setting
 	lda	zpPpuCtrlVal
 	sta	PPU_CTRL_Mirror
+
 	lda	zpPpuMaskVal
 	sta	PPU_MASK_Mirror
 
@@ -52,6 +53,7 @@ RestoreBasWork:
 	lda	zpPpuCtrlVal
 	ora	#$80
 	sta	PPU_CTRL
+
 	lda	zpPpuMaskVal
 	sta	PPU_MASK
 RBEnd:

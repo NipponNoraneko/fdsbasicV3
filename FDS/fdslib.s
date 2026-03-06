@@ -76,7 +76,7 @@ sFrom:  .asciiz	" FROM:$"
 sTo:    .asciiz	"        TO:$"
 sVal:   .asciiz	"       VAL:$"
 ;--------------------------------------------
-sPallet:.byte	' ', ' ', $fd, $fe, $ff, ' ', $fd, $fe, $ff,0
+sPallet:.byte	$fc, $fc, $fd, $fe, $ff, $fc, $fd, $fe, $ff,0
 
 ;------------------------------------------------------------------------------
 
@@ -100,6 +100,7 @@ VOff:
 SetPPU:
 	sta	PPU_CTRL
 	sta	PPU_CTRL_Mirror
+	sta	zpPpuCtrlVal
 
 	lda	zpPpuMaskVal
 	sta	PPU_MASK
@@ -128,7 +129,7 @@ ResetScroll:
 ;
 Buf2VRAM:
 	jsr	VOff
-	jsr	WaitVsync
+	jsr	WaitForVBlank				; BASIC routine
 
 	lda	zActAddr+1
 	sta	PPU_ADDR
@@ -151,11 +152,8 @@ Buf2VRAM:
 
 ;------------------------------------------------------------------------------
 ;
-WaitVsync:
-	ldy	#1
 WaitVsyncY:
-	bit	PPU_STATUS
-	bpl	WaitVsyncY
+	jsr	WaitForVBlank				; BASIC routine
 	dey
 	bne	WaitVsyncY
 
@@ -166,7 +164,6 @@ WaitVsyncY:
 _ResetPatch:
 	lda	#$10
 	sta	PPU_CTRL
-;	lda	#$0e
 	lda	#$00
 	sta	PPU_MASK
 							;--- Wait V-SYNC 3Times

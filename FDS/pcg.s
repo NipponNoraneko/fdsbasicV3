@@ -1,4 +1,6 @@
 ;ts=8
+.segment	"ORG_TOKEN_AREA"
+
 ;------------------------------------------------------------------------------
 zActAddr	=	zpPokeAddr
 paletNo		=	zpPaletteNum
@@ -7,6 +9,11 @@ palNum		=	zpGameNum
 charDirty	=	zpSavedCH
 charEditPos	=	zpSavedCV
 
+paletCursor	=	$2f0
+paletCursor2	=	$2f4
+markCursor	=	$2f8
+editCursor	=	$2fc
+
 ;------------------------------------------------------------------------------
 PCG_READ	=	$02
 PCG_WRITE	=	$00
@@ -14,17 +21,21 @@ PCG_WRITE	=	$00
 OBJ_TOP		=	0
 BG_TOP		=	$10
 
-PALET_CUR	=	$2f0
-PAL2_CUR	=	$2f4
-MARK_CUR	=	$2f8
-EDIT_CUR	=	$2fc
+PUT8X8_POS	=	$20a3
+EDIT_CHAR_POS	=	$212c
+CHARS_SHOW_POS	=	$206e
 
+;------------------------------------------------------------------------------
 .enum
-	Y_POS		=	0
+	Y_POS	=	0
 	OBJ_NO
 	OBJ_ATTR
 	X_POS
 .endenum
+
+flgBgObj:
+	.byte	$08
+
 ;------------------------------------------------------------------------------
 ;	Clr8x8:
 ;
@@ -101,15 +112,21 @@ Pack8x8:
 	sty	charDirty
 						;--- 書き戻し
 	jsr	VOff
-	jsr	WaitVsync
+	jsr	WaitForVBlank
 
 	lda	zBufAddr
 	sta	vramPtr				; 転送元lower
 	lda	zBufAddr+1
 	sta	vramPtr+1			;       upper
 	sec
-	sbc	#$60
+	sbc	#$70
 	tay					; Y:書き戻し先 upper
+	ldx	#$08
+	cpx	flgBgObj
+	beq	@OBJ
+	ora	#$10
+	tay
+@OBJ:
 	lda	editCharNo
 	asl	a
 	asl	a
@@ -188,47 +205,42 @@ Extent8x8:
 ;	Put8x8:
 ;
 Put8x8:
-	lda	#$a3
-	sta	zActAddr
-	lda	#$20
+						;--- 表示位置
+	lda	#>PUT8X8_POS
 	sta	zActAddr+1
-
-	lda	#0
-	tay					; A,X,Y = 0
-@P88L05:
+	lda	#<PUT8X8_POS
+	sta	zActAddr
+						;--- 
+	ldy	#0
+@P88L05:					;--- 一行表示
 	ldx	#0
 @P88L10:
 	lda	charBuf,y
 	bne	@P88J10
-
-	lda	#$20
-	bne	@P88J20
 @P88J10:
 	clc
 	adc	#$fc
-@P88J20:
 	sta	lineBuffer80,x
 	iny
 	inx
 	cpx	#8
-	bne	@P88L10
+	bne	@P88L10				; 一行未完
 
 	sty	tmpY
 	lda	#0
-	sta	lineBuffer80,x
+	sta	lineBuffer80,x			; デリミタ
 
-	jsr	Buf2VRAM
+	jsr	Buf2VRAM			; 一行表示
 	jsr	NextLine
 
 	ldy	tmpY
 	cpy	#64
-	bne	@P88L05
-;212c
-;	jsr	VOff
-;	jsr	WaitVsync
-	ldx	#$21
-	lda	#$2c
+	bne	@P88L05				; 次行
+						;--- 編集中キャラ表示
+	ldx	#>EDIT_CHAR_POS
+	lda	#<EDIT_CHAR_POS
 	jsr	SetPpuAddr
+
 	lda	editCharNo
 	sta	PPU_DATA
 
@@ -238,10 +250,10 @@ Put8x8:
 ;	ShowChars:
 ;
 ShowChars:
-	lda	#$6e
-	sta	zActAddr
-	lda	#$20
+	lda	#>CHARS_SHOW_POS
 	sta	zActAddr+1
+	lda	#<CHARS_SHOW_POS
+	sta	zActAddr
 
 	ldy	#16
 	sty	tmpY
@@ -301,7 +313,7 @@ ShowPalet:
 	jsr	PutStr
 
 	jsr	VOff
-	jsr	WaitVsync
+	jsr	WaitForVBlank
 
 RestorePalDisp:
 	ldx	#$23
@@ -315,10 +327,6 @@ RestorePalDisp:
 	lda	#$f5				; 01 01
 						; 11 11
 	sta	PPU_DATA
-
-;	lda	#$31				; 01 00
-						; 11 00
-;	sta	PPU_DATA
 
 	jsr	VOn
 
@@ -350,7 +358,7 @@ PaletUp:
 
 ChangePalet:
 	jsr	VOff
-	jsr	WaitVsync
+	jsr	WaitForVBlank
 
 	ldx	#$23
 	lda	#$c0
@@ -369,17 +377,24 @@ ChangePalet:
 
 ;------------------------------------------------------------------------------
 InitEdCur:
+	lda	#>xferEditTbl
+	sta	zActAddr+1
+	lda	#<xferEditTbl
+	sta	zActAddr
+	ldx	#8
+	jsr	CharXfer2
+
 	lda	#0
 	sta	charEditPos
 
 	ldx	#16-1
 @IELoop:
-	lda	paletCur,x
-	sta	PALET_CUR,x
+	lda	cursTbl,x
+	sta	paletCursor,x
 	dex
 	bpl	@IELoop
 							;---- Edit Cursor Update
-UpdateCur:
+EditCurUpdate:
 	lda	charEditPos
 	pha
 	and	#$07
@@ -388,27 +403,27 @@ UpdateCur:
 	asl
 	clc
 	adc	#(1+2)*8
-	sta	EDIT_CUR + X_POS
+	sta	editCursor + X_POS
 
 	pla
 	and	#$f8
 	clc
 	adc	#(2+3)*8-1
-	sta	EDIT_CUR + Y_POS
+	sta	editCursor + Y_POS
 
 	rts
 
-paletCur:.byte	136, $fd, $03, 16
-pal2Cur:.byte	128-1, $fc, $83, 24
-markCur:.byte	24-1, $ff, $03, 112 
-editCur:.byte	(2+3)*8-1, $fe, $03, (1+2)*8
+cursTbl:
+paletCur:.byte	136,       $fa, $03, 16
+pal2Cur:.byte	128-1,     $fb, $83, 24
+markCur:.byte	24-1,      $f8, $03, 112 
+editCur:.byte	(2+3)*8-1, $f9, $03, (1+2)*8
 
 ;------------------------------------------------------------------------------
 ;	Edit8x8:
 Edit8x8:
 	lda	#0
 	sta	editCharNo
-	sta	preChar
 @E88L10:					;--- 拡大表示(8x8)
 	jsr	Clr8x8
 	jsr	Extent8x8
@@ -418,28 +433,21 @@ Edit8x8:
 	jsr	VOn
 
 @KeyWait:
-	ldy	#5
-	jsr	WaitVsyncY
-
-	jsr	ReadKeyInsMacros
-	bne	@KWJ10
-	lda	preChar
-	bne	@KWJ20
-@KWJ10:
-	sta	preChar
+	jsr	ReadChar			; BASIC routine
 	beq	@KeyWait
-@KWJ20:
+
 	cmp	#'Q'
 	beq	@Exit
 
 	jsr	KeyAct
+
 	lda	charDirty
 	bne	@E88L10
 	beq	@E88Loop
 @Exit:
 	rts
 
-preChar:.res	1
+;preChar:.res	1
 
 ;------------------------------------------------------------------------------
 ;	KeyAct:
@@ -449,7 +457,7 @@ preChar:.res	1
 KeyAct:
 	tay
 	ldx	#0
-	stx	preChar
+;	stx	preChar
 @KeyActLoop:
 	lda	#$ff
 	cmp	keyActTbl,x
@@ -493,9 +501,11 @@ keyActTbl:
 	.byte	'P',$00				; パレット変更
 	.addr	PaletUp
 	.byte	'N',$00				; 次キャラクタ
-	.addr	IncEditChar
+	.addr	NextEditChar
 	.byte	' ',$00				; Dot変更
 	.addr	PutDot
+	.byte	'S',$00
+	.addr	FlipBgObj
 
 	.byte	$ff
 
@@ -507,11 +517,13 @@ PutDot:
 	sta	charBuf,y
 
 	inc	charDirty
+
 	jsr	Pack8x8
 
 	rts
+
 ;------------------------------------------------------------------------------
-IncEditChar:
+NextEditChar:
 	lda	zpShiftKeyDn
 	bne	@DecNo
 
@@ -519,6 +531,7 @@ IncEditChar:
 	jmp	MarkUpdate
 @DecNo:
 	dec	editCharNo
+
 MarkUpdate:
 	lda	editCharNo
 	pha
@@ -528,14 +541,14 @@ MarkUpdate:
 	asl	a
 	clc
 	adc	#112
-@MUEnd:
-	sta	MARK_CUR + X_POS
+	sta	markCursor + X_POS
+
 	pla
 	and	#$f0
 	lsr	a
 	clc
 	adc	#24-1
-	sta	MARK_CUR + Y_POS
+	sta	markCursor + Y_POS
 
 	jsr	Clr8x8
 	jsr	Extent8x8
@@ -564,16 +577,183 @@ CurUpdateEnd:
 	and	#$3f
 	sta	charEditPos
 
-	jsr	UpdateCur
+	jsr	EditCurUpdate
 
 	rts
 
+.segment	"OLD_GAME_COMMAND"
+;------------------------------------------------------------------------------
+;	CLS2:
+CLS2:
+	sta	$b48a				; Clear Char No.
+
+	lda	#0
+	jsr	CLS				; BASIC command: CLS
+
+	rts
+
+;------------------------------------------------------------------------------
+;	RestoreChar:編集用キャラ書き戻し
+;
+RestoreChar:
+	lda	#>xferRestoreTbl
+	sta	zActAddr+1
+	lda	#<xferRestoreTbl
+	sta	zActAddr
+	ldx	#2
+	jsr	CharXfer2
+
+	lda	zpPpuCtrlVal
+	and	#$e7
+	ora	#$10
+	sta	PPU_CTRL
+	sta	zpPpuCtrlVal
+	sta	PPU_CTRL_Mirror
+
+	rts
+
+;------------------------------------------------------------------------------
+;	CharRW:
+;		ALL REGSER BREAK
+;
+CharRW:
+dirAddrL:
+	lda	#PCG_READ
+addrH:	ldy	#$10
+xfrNum:	ldx	#0
+	jsr	LoadTileset
+srcDist: .addr	$7000
+
+	rts
+
+;------------------------------------------------------------------------------
+;	CharXfer:	キャラクタ転送
+;
+CharXfer:
+	ldx	#5
+CharXfer2:
+	stx	tmpX
+
+	jsr	VOff
+	lda	#$00
+	sta	PPU_MASK
+	jsr	WaitForVBlank
+
+	ldy	#0
+	sty	tmpY
+@CTLoop:
+	lda	(zActAddr),y
+	sta	dirAddrL+1
+	iny
+	lda	(zActAddr),y
+	sta	addrH+1
+	iny
+	lda	(zActAddr),y
+	sta	xfrNum+1
+	iny
+	lda	(zActAddr),y
+	sta	srcDist
+	iny
+	lda	(zActAddr),y
+	sta	srcDist+1
+	iny
+	sty	tmpY
+
+	jsr	CharRW
+
+	ldy	tmpY
+	dec	tmpX
+	bne	@CTLoop
+
+	jsr	VOn
+	lda	#$0
+	sta	PPU_MASK
+
+	rts	
+
+.byte	"ADDF"
+XfrEnd:
+
 .segment	"FDS_PATCH"
+;------------------------------------------------------------------------------
+xferTbl:
+	.byte	$00|PCG_READ,  $10, 0, <$7000, >$7000		; $1000~$1fff -> $7000~ BGすべて
+	.byte	$80|PCG_WRITE, $1f, 8, <$6c80, >$6c80		; $0f00~$0fff <- $6c00~ OBJ:F0~FF
+	.byte	$80|PCG_READ,  $1f, 8, <$6c80, >$6c80		; $0f00~$0fff -> $6c00~ OBJ:F0~FF
+	.byte	$80|PCG_WRITE, $0f, 8, <$6a00, >$6a00		; $7d90~$7d9f -> $0ff0~ '□'->OBJ:d9
+	.byte	$c0|PCG_WRITE, $1f, 4, <$6a40, >$6a40		; $7d90~$7d9f -> $0ff0~ '□'->OBJ:d9
+	
+xferTbl2:
+	.byte	$00|PCG_READ,  $00, 0, <$7000, >$7000		; $0000~$0fff -> $7000~ OBJすべて
+	.byte	$80|PCG_WRITE, $0f, 8, <$6c00, >$6c00		; $0f00~$0fff <- $6c00~ OBJ:F0~FF
+	.byte	$80|PCG_READ,  $0f, 8, <$6c00, >$6c00		; $0f00~$0fff -> $6c00~ BG:F0~FF
+	.byte	$80|PCG_WRITE, $1f, 8, <$6a00, >$6a00		; $7d90~$7d9f -> $0ff0~ '□'->OBJ:d9
+	.byte	$c0|PCG_WRITE, $0f, 4, <$aa40, >$6a40		; $7d90~$7d9f -> $0ff0~ '□'->OBJ:d9
+	
+xferEditTbl:
+	.byte	$80|PCG_READ,  $0f, 8, <$6c00, >$6c00		; $0f80~$0fff -> $6c00~ OBJ:F0~FF
+	.byte	$80|PCG_READ,  $1f, 8, <$6c80, >$6c80		; $1f80~$0fff -> $6c80~ BG:F0~FF
+	.byte	$90|PCG_READ,  $0d, 1, <$6a00, >$6a00		; '└'->OBJ:FF
+	.byte	$d0|PCG_READ,  $0d, 1, <$6a10, >$6a10		; '✛'->OBJ:FE
+	.byte	$e0|PCG_READ,  $13, 1, <$6a20, >$6a20		; '>'->OBJ:FD
+	.byte	$e0|PCG_READ,  $15, 1, <$6a30, >$6a30		; '^'->OBJ:FC
+	.byte	$00|PCG_READ,  $12, 1, <$6a40, >$6a40		; ' '->OBJ:FC
+	.byte	$d0|PCG_READ,  $1f, 3, <$6a50, >$6a50		; ' '->OBJ:FC
+
+xferRestoreTbl:
+	.byte	$80|PCG_WRITE, $0f, 8, <$6c00, >$6c00		; $0f80~$0fff <- $6c00~ OBJ:F0~FF
+	.byte	$80|PCG_WRITE, $1f, 8, <$6c80, >$6c80		; $1f80~$1fff <- $6c80~ BG:F0~FF
+;------------------------------------------------------------------------------
+;	FlipBgObj:
+;
+FlipBgObj:
+	lda	flgBgObj
+	eor	#$18
+	sta	flgBgObj
+
+	pha
+	sta	zpCursFlashCtr
+	jsr	$aedd				; CGEN
+	lda	zpPpuCtrlVal
+	sta	PPU_CTRL_Mirror
+	pla
+
+	cmp	#$08				; BG
+	bne	@FBJ10				; yes
+						;--- OBJ
+	ldy	#>xferTbl2
+	ldx	#<xferTbl2
+	lda	#$ef
+	bne	@FBJ20
+@FBJ10:						;--- BG
+	ldy	#>xferTbl
+	ldx	#<xferTbl
+	lda	#$20
+@FBJ20:
+	pha
+	sta	charDirty
+
+	sty	zActAddr+1
+	stx	zActAddr
+	jsr	CharXfer
+
+;------------------------------------------------------------------------------
+UpdateDisp:
+	pla
+	jsr	CLS2
+
+	jsr	ShowChars
+	jsr	ShowPalet
+	
+	rts
 ;------------------------------------------------------------------------------
 ;	CmdPCG:
 CmdPCG:
-	lda	#0
-	jsr	$ae0a
+	lda	#$fc
+	sta	zpCursorChar
+
+	jsr	CmdFn_SPRITE_ON
+
 	jsr	SaveBasWork
 
 	jsr	VOff
@@ -581,84 +761,53 @@ CmdPCG:
 	sta	PPU_MASK
 	sta	$100
 	jsr	VINTWait
-						;--- $1000~$1fff -> $7000~ BGすべて
-	lda	#PCG_READ
-	ldy	#$10
-	ldx	#0
-	jsr	LoadTileset
-	.addr	$7000
-						;--- $0f00~$0fff -> $6c00~ OBJ:F0~FF
-	lda	#PCG_READ | $00
-	ldy	#$0f
-	ldx	#16
-	jsr	LoadTileset
-	.addr	$6c00
-						;--- $7b00~$7b0f -> $0ff0~ '□'->OBJ:FF
-	lda	#PCG_WRITE | $f0
-	ldy	#$0f
-	ldx	#1
-	jsr	LoadTileset
-	.addr	$7b00
-						;--- $7dd0~$7ddf -> $0ff0~ '✛'->OBJ:FE
-	lda	#PCG_WRITE | $e0
-	ldy	#$0f
-	ldx	#1
-	jsr	LoadTileset
-	.addr	$7dd0
-						;--- $73e0~$73ef -> $0ff0~ '>'->OBJ:FD
-	lda	#PCG_WRITE | $d0
-	ldy	#$0f
-	ldx	#1
-	jsr	LoadTileset
-	.addr	$73e0
-						;--- $75e0~$75ef -> $0ff0~ '^'->OBJ:FC
-	lda	#PCG_WRITE | $c0
-	ldy	#$0f
-	ldx	#1
-	jsr	LoadTileset
-	.addr	$75e0
+
+	jsr	RestoreBasWork
 
 	jsr	VOn
 	lda	zpPpuMaskVal
 	sta	PPU_MASK
 
-	jsr	RestoreBasWork
+
 	lda	#$c0
 	sta	$100
 						;--- キャラクタ一覧表示
 	jsr	SetStrBufPtr
-	jsr	ShowChars
 						;--- パレット表示
 	lda	#0
 	sta	paletNo
 	sta	palNum
-	jsr	ShowPalet
 
 	jsr	InitEdCur
+
+	jsr	FlipBgObj
+
 	jsr	Edit8x8
-@Exit:						;--- 終了:全体書き戻し
+@Exit:						;--- 終了
 	jsr	SaveBasWork
 
 	jsr	VOff
 	lda	#$00
 	sta	PPU_MASK
 
-	lda	#PCG_WRITE
-	ldy	#$10
-	ldx	#0
-	jsr	LoadTileset
-	.addr	$7000
-						;--- $0f00~$0fff <- $6c00~ OBJ:F0~FF
-	lda	#PCG_WRITE | $00
-	ldy	#$0f
-	ldx	#16
-	jsr	LoadTileset
-	.addr	$6c00
+	jsr	RestoreChar
+
+	jsr	ClearOam
 
 	jsr	VOn
 	lda	zpPpuMaskVal
 	sta	PPU_MASK
 
 	jsr	RestoreBasWork
+	lda	#$fd
+	sta	zpCursorChar
+
+	lda	#$08
+	sta	flgBgObj
+
+	lda	#$20
+	jsr	CLS2
 PCGEND:
 	rts
+
+.byte	"END"
