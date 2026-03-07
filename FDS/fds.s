@@ -303,17 +303,6 @@ ReadCardInfo:
 	rts
 
 ;------------------------------------------------------------------------------
-;	SetStrBufPtr:
-;
-SetStrBufPtr:
-	lda	#<lineBuffer80
-	sta	zpOutputStr
-	lda	#>lineBuffer80
-	sta	zpOutputStr+1
-
-	rts
-
-;------------------------------------------------------------------------------
 ;	PutHexDat:
 ;
 ;	IN	A: bin data

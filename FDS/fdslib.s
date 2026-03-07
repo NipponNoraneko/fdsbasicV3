@@ -13,6 +13,7 @@ loadFileType:
 driveStat:						; ドライブ状態
 	.byte	$00
 							;--- タイトル行
+;- PCG --------------------------------------
 strNS_HUDSON:
 	.byte	"NS-HUBASIC V3.0D:"
 .incbin	"datetime.s",0,10
@@ -31,10 +32,7 @@ charBuf		=	$6b14
 	STR_ERR
 	STR_DUMP
 	STR_MODIFY
-	STR_FILL
 	STR_FROM
-	STR_TO
-	STR_VAL
 	STR_PALLET
 .endenum
 
@@ -46,10 +44,7 @@ strTbl:
 
 	.addr	sDump
 	.addr	sModify
-	.addr	sFill
 	.addr	sFrom
-	.addr	sTo
-	.addr	sVal
 
 	.addr	sPallet
 ;--------------------------------------------
@@ -62,15 +57,22 @@ sErr:	.byte	"! ERR.",0
 ;--------------------------------------------
 sDump:  .asciiz	"DUMP"
 sModify:.asciiz	"MODIFY"
-sFill:  .asciiz	"FILL"
 sFrom:  .asciiz	" FROM:$"
-sTo:    .asciiz	"        TO:$"
-sVal:   .asciiz	"       VAL:$"
 ;--------------------------------------------
 sPallet:.byte	$fc, $fc, $fd, $fe, $ff, $fc, $fd, $fe, $ff,0
 
 ;------------------------------------------------------------------------------
+;	VOffWaitVsync:
+;
+VOffWaitVsync:
+	jsr	VOff
+	jsr	WaitForVBlank
 
+	rts
+
+;------------------------------------------------------------------------------
+;	VsyncOn:
+;
 VsyncOn:
 	lda	#$c0
 	sta	NMI_FLAG
@@ -91,7 +93,6 @@ VOff:
 SetPPU:
 	sta	PPU_CTRL
 	sta	PPU_CTRL_Mirror
-	;sta	zpPpuCtrlVal
 
 	lda	zpPpuMaskVal
 	sta	PPU_MASK
@@ -117,6 +118,18 @@ ResetScroll:
 	rts
 
 ;------------------------------------------------------------------------------
+;       SetStrBufPtr:
+;
+SetStrBufPtr:
+        lda     #<lineBuffer80
+        sta     zpOutputStr
+        lda     #>lineBuffer80
+        sta     zpOutputStr+1
+
+        rts
+
+;------------------------------------------------------------------------------
+;	Buf2VRAM:
 ;
 Buf2VRAM:
 	jsr	VOff
@@ -142,6 +155,7 @@ Buf2VRAM:
 	rts
 
 ;------------------------------------------------------------------------------
+;	WaitVsyncY:
 ;
 WaitVsyncY:
 	jsr	WaitForVBlank				; BASIC routine
@@ -151,6 +165,7 @@ WaitVsyncY:
 	rts
 
 ;------------------------------------------------------------------------------
+;	_ResetPatch:
 ;
 _ResetPatch:
 	lda	#$10
@@ -219,8 +234,7 @@ PutStr:
 	tax
 	lda	strTbl,x
 	sta	zpOutputStr
-	inx
-	lda	strTbl,x
+	lda	strTbl+1,x
 	sta	zpOutputStr+1
 
 	jsr	PrintString

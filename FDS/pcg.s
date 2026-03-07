@@ -36,6 +36,7 @@ CHARS_SHOW_POS	=	$206e
 flgBgObj:
 	.byte	$08
 
+
 ;------------------------------------------------------------------------------
 ;	Clr8x8:
 ;
@@ -51,6 +52,8 @@ Clr8x8:
 
 ;------------------------------------------------------------------------------
 ;	CalcCharAddr:	キャラクタアドレス計算
+;
+;	zBufAddr = editCharNo * 16 + $7000
 ;
 CalcCharAddr:
 	lda	editCharNo
@@ -74,6 +77,9 @@ CalcCharAddr:
 	rts
 
 ;------------------------------------------------------------------------------
+;	Pack8x8:	2bpパッキング
+;
+;	charBufの内容を2bpにパッキングし、元のアドレスに書き戻す
 ;
 Pack8x8:
 	jsr	CalcCharAddr
@@ -111,8 +117,7 @@ Pack8x8:
 
 	sty	charDirty
 						;--- 書き戻し
-	jsr	VOff
-	jsr	WaitForVBlank
+	jsr	VOffWaitVsync
 
 	lda	zBufAddr
 	sta	vramPtr				; 転送元lower
@@ -152,7 +157,9 @@ cbPtr:	lsr	charBuf,x
 
 	rts
 ;------------------------------------------------------------------------------
-;	Extent8x8:
+;	Extent8x8:	2bpデータ展開
+;
+;	2bpキャラクタデータを展開し、charBufに格納する
 ;
 Extent8x8:
 	jsr	CalcCharAddr			; キャラクタアドレス計算
@@ -206,10 +213,9 @@ Extent8x8:
 ;
 Put8x8:
 						;--- 表示位置
-	lda	#>PUT8X8_POS
-	sta	zActAddr+1
+	ldx	#>PUT8X8_POS
 	lda	#<PUT8X8_POS
-	sta	zActAddr
+	jsr	SetActAddr
 						;--- 
 	ldy	#0
 @P88L05:					;--- 一行表示
@@ -250,10 +256,9 @@ Put8x8:
 ;	ShowChars:
 ;
 ShowChars:
-	lda	#>CHARS_SHOW_POS
-	sta	zActAddr+1
+	ldx	#>CHARS_SHOW_POS
 	lda	#<CHARS_SHOW_POS
-	sta	zActAddr
+	jsr	SetActAddr
 
 	ldy	#16
 	sty	tmpY
@@ -269,7 +274,7 @@ ShowChars:
 						;---
 	pha
 	lda	#0
-	sta	lineBuffer80,x			;
+	sta	lineBuffer80,x			; 文字列デリミタ:0
 
 	jsr	Buf2VRAM
 	jsr	NextLine
@@ -312,9 +317,7 @@ ShowPalet:
 	lda	#STR_PALLET
 	jsr	PutStr
 
-	jsr	VOff
-	jsr	WaitForVBlank
-
+	jsr	VOffWaitVsync
 RestorePalDisp:
 	ldx	#$23
 	lda	#$e1
@@ -335,33 +338,33 @@ RestorePalDisp:
 ;------------------------------------------------------------------------------
 ;	PaletUP:
 ;
-;		A|B
-;		C|D		paletNo = dd.cc.bb.aa
+;	A|B
+;	C|D		paletNo = dd.cc.bb.aa
 ;
 PaletUp:
 	lda	zpShiftKeyDn
-	bne	@PUJ10
+	beq	@PUJ10
 
+	dec	palNum
+	jmp	@PUJ20
+@PUJ10:
 	inc	palNum
+@PUJ20:
 	lda	palNum
 	and	#$0f
 	sta	palNum
-	jmp	ChangePalet
-@PUJ10:
-	lda	paletNo
-	clc
-	adc	#$55
-	bcc	@Skip
-	lda	#0
-@Skip:
+
+	lsr	a
+	lsr	a
+	tax
+	lda	paletTbl,x
 	sta	paletNo
 
 ChangePalet:
-	jsr	VOff
-	jsr	WaitForVBlank
+	jsr	VOffWaitVsync
 
-	ldx	#$23
-	lda	#$c0
+	ldx	#>BG_COLOR1_ADDR
+	lda	#<BG_COLOR1_ADDR
 	jsr	SetPpuAddr
 
 	lda	paletNo
@@ -373,14 +376,21 @@ ChangePalet:
 
 	jsr	RestorePalDisp
 
+	jsr	PaletCurUpdate
+
 	rts
 
+paletTbl:
+	.byte	$00, $55, $aa, $ff
+
 ;------------------------------------------------------------------------------
+;	InitEdCur:
+;
 InitEdCur:
-	lda	#>xferEditTbl
-	sta	zActAddr+1
+	ldx	#>xferEditTbl
 	lda	#<xferEditTbl
-	sta	zActAddr
+	jsr	SetActAddr
+
 	ldx	#8
 	jsr	CharXfer2
 
@@ -414,13 +424,15 @@ EditCurUpdate:
 	rts
 
 cursTbl:
-paletCur:.byte	136,       $fa, $03, 16
+paletCur:
+	.byte	136,       $fa, $03, 16
 pal2Cur:.byte	128-1,     $fb, $83, 24
 markCur:.byte	24-1,      $f8, $03, 112 
 editCur:.byte	(2+3)*8-1, $f9, $03, (1+2)*8
 
 ;------------------------------------------------------------------------------
 ;	Edit8x8:
+;
 Edit8x8:
 	lda	#0
 	sta	editCharNo
@@ -501,7 +513,7 @@ keyActTbl:
 	.addr	NextEditChar
 	.byte	' ',$00				; Dot変更
 	.addr	PutDot
-	.byte	'S',$00
+	.byte	'S',$00				; OBJ/BG切り替え
 	.addr	FlipBgObj
 
 	.byte	$ff
@@ -577,8 +589,19 @@ CurUpdateEnd:
 	jsr	EditCurUpdate
 
 	rts
+;.byte	">>>"
 
 .segment	"OLD_GAME_COMMAND"
+;------------------------------------------------------------------------------
+;	SetActAddr:
+;		IN	X:upper address
+;			A:lower address
+SetActAddr:
+	stx	zActAddr+1
+	sta	zActAddr
+
+	rts
+
 ;------------------------------------------------------------------------------
 ;	CLS2:
 CLS2:
@@ -590,13 +613,13 @@ CLS2:
 	rts
 
 ;------------------------------------------------------------------------------
-;	RestoreChar:編集用キャラ書き戻し
+;	RestoreChar:	編集用キャラ書き戻し
 ;
 RestoreChar:
-	lda	#>xferRestoreTbl
-	sta	zActAddr+1
+	ldx	#>xferRestoreTbl
 	lda	#<xferRestoreTbl
-	sta	zActAddr
+	jsr	SetActAddr
+
 	ldx	#2
 	jsr	CharXfer2
 
@@ -611,7 +634,7 @@ RestoreChar:
 
 ;------------------------------------------------------------------------------
 ;	CharRW:
-;		ALL REGSER BREAK
+;		ALL REGISER BREAK
 ;
 CharRW:
 dirAddrL:
@@ -631,10 +654,9 @@ CharXfer:
 CharXfer2:
 	stx	tmpX
 
-	jsr	VOff
+	jsr	VOffWaitVsync
 	lda	#$00
 	sta	PPU_MASK
-	jsr	WaitForVBlank
 
 	ldy	#0
 	sty	tmpY
@@ -695,7 +717,7 @@ xferEditTbl:
 	.byte	$e0|PCG_READ,  $13, 1, <$6a20, >$6a20		; '>'->OBJ:FD
 	.byte	$e0|PCG_READ,  $15, 1, <$6a30, >$6a30		; '^'->OBJ:FC
 	.byte	$00|PCG_READ,  $12, 1, <$6a40, >$6a40		; ' '->OBJ:FC
-	.byte	$d0|PCG_READ,  $1f, 3, <$6a50, >$6a50		; ' '->OBJ:FC
+	.byte	$d0|PCG_READ,  $1f, 3, <$6a50, >$6a50		; '■■■'-> OBJ:FC
 
 xferRestoreTbl:
 	.byte	$80|PCG_WRITE, $0f, 8, <$6c00, >$6c00		; $0f80~$0fff <- $6c00~ OBJ:F0~FF
@@ -744,6 +766,35 @@ UpdateDisp:
 	jsr	ShowPalet
 	
 	rts
+
+;------------------------------------------------------------------------------
+;	PaletCurUpdate:
+;
+PaletCurUpdate:
+	lda	palNum
+	pha
+	and	#$f8
+	bne	@PCUJ10
+	lda	#136
+	bne	@PCUJ20
+@PCUJ10:
+	lda	#136+8
+@PCUJ20:
+	sta	paletCursor + Y_POS
+
+	pla
+	and	#$07
+	asl	a
+	asl	a
+	asl	a
+	clc
+	adc	#24
+	sta	paletCursor2 + X_POS
+
+	rts
+
+;------------------------------------------------------------------------------
+;	Edit8x8:
 ;------------------------------------------------------------------------------
 ;	CmdPCG:
 CmdPCG:
@@ -769,9 +820,10 @@ CmdPCG:
 
 	jsr	Edit8x8
 @Exit:						;--- 終了
-	jsr	VOff
-	lda	#$00
-	sta	PPU_MASK
+;	jsr	VOff
+;	lda	#$00
+;	sta	PPU_MASK
+	jsr	WaitForVBlank
 
 	jsr	RestoreChar
 
