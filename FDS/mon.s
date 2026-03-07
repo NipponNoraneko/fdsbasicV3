@@ -10,6 +10,23 @@ RIGHT_KEY	=	$1d
 UP_KEY		=	$1e
 DOWN_KEY	=	$1f
 
+;--------------------------------------------------------
+tmpCV:	.res	1
+tmpCH:	.res	1
+topCV:	.res	1
+topCH:	.res	1
+nibbleCnt:
+	.res	1
+dirty:	.res	1
+
+;--------------------------------------------------------
+reqBytes:
+	.res		1
+inputCharCnt:
+	.res		1
+inputCharBuf:
+	.res		4+1
+
 ;------------------------------------------------------------------------------
 ;	HexCharCheck:	
 ;
@@ -87,14 +104,6 @@ InputBytes:
 	bne	@RALoop
 
 	rts
-
-;--------------------------------------------------------
-reqBytes:
-	.res		1
-inputCharCnt:
-	.res		1
-inputCharBuf:
-	.res		4+1
 
 ;------------------------------------------------------------------------------
 ;
@@ -538,51 +547,6 @@ MMErr:
 
 	rts
 
-;--------------------------------------------------------
-tmpCV:	.res	1
-tmpCH:	.res	1
-topCV:	.res	1
-topCH:	.res	1
-nibbleCnt:
-	.res	1
-dirty:	.res	1
-
-
-
-;------------------------------------------------------------------------------
-;
-Fill:
-							;--- Put "FILL"
-	lda	#STR_FILL
-	jsr	PutStr
-
-	jsr	FromInput
-							;--- Put "TO:$"
-	lda	#STR_TO
-	jsr	PutStr
-
-	lda	#4
-	sta	reqBytes
-	jsr	InputBytes
-	jsr	DoCRLF
-							; 大小比較
-
-
-							;--- Put "VAL:$"
-	lda	#STR_VAL
-	jsr	PutStr
-
-	lda	#2
-	sta	reqBytes
-	jsr	InputBytes
-
-	lda	#$ff
-	sta	dirty
-
-	clc
-
-	rts
-
 ;------------------------------------------------------------------------------
 ;	MonPrompt:
 ;
@@ -664,9 +628,6 @@ monCmds:
 
 	.byte	'M'
 	.addr	ModifyMode
-
-	.byte	'F'
-	.addr	Fill
 
 	.byte	$ff					; end
 
