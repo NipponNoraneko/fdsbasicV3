@@ -59,7 +59,7 @@ pNmiTrampoline	= 	$ed
 .segment "BGGETPUT_PATCH4"
 	.byte <bgGetRam
 
-; ------ MON ------------------------------------
+; ------ PCG ------------------------------------
 .segment "ORG_TOKEN_AREA"
 .include "FDS/pcg.s"
 
