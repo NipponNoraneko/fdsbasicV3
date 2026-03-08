@@ -31,3 +31,10 @@ BG_COLOR2_ADDR	= $27c0
 BG_COLOR3_ADDR	= $2bc0
 BG_COLOR4_ADDR	= $2fc0
 
+.enum
+	Y_POS	= 0   
+	OBJ_NO
+	OBJ_ATTR
+	X_POS
+.endenum
+

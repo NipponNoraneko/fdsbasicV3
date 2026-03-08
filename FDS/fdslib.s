@@ -13,12 +13,17 @@ loadFileType:
 driveStat:						; ドライブ状態
 	.byte	$00
 							;--- タイトル行
-;- PCG --------------------------------------
+;--------------------------------------------
 strNS_HUDSON:
 	.byte	"NS-HUBASIC V3.0D:"
 .incbin	"datetime.s",0,10
 	.byte	$00
 
+.ifdef	IRQ_EXPERIMANT					;--- FDS タイマの実験
+;--------------------------------------------
+testIRQ:.res	1
+irqTime:.addr	$8000
+.endif
 
 ;- PCG --------------------------------------
 editCharNo	=	$6b00
@@ -27,7 +32,8 @@ charBuf		=	$6b14
 
 ;------------------------------------------------------------------------------
 .enum
-	STR_SURE	=	0
+	STR_NOMON	=	0
+	STR_SURE
 	STR_LOADING
 	STR_ERR
 	STR_DUMP
@@ -38,6 +44,8 @@ charBuf		=	$6b14
 
 ;--------------------------------------------
 strTbl:
+	.addr	sNoMon
+
 	.addr	sAreYouSure
 	.addr	sLoadFile
 	.addr	sErr
@@ -47,7 +55,9 @@ strTbl:
 	.addr	sFrom
 
 	.addr	sPallet
+
 ;--------------------------------------------
+sNoMon:	.asciiz	"THE MONITOR HAS NOT BEEN LOADED."
 sAreYouSure:
 ;	.asciiz "ARE YOU SURE YOU WANT TO DELETE THE FILE?"
 	.asciiz "DELETE THIS FILE?"
@@ -196,6 +206,33 @@ NMI:
 	pha
 	lda	FDS_DRIVE_STATUS
 	sta	driveStat
+.ifdef	IRQ_EXPERIMANT					;--- FDS タイマの実験
+	lda	zpNMICMD
+	bne	@NMIJ10
+	cmp	#NC_PpuMaskUpdate
+	beq	@NMIJ10
+	cmp	#NC_PpuMaskClear
+	beq	@NMIJ10
+
+	lda	testIRQ
+	beq	@NMIJ10
+
+	lda	#$c0
+	sta	IRQ_FLAG
+	lda	zpPpuCtrlVal
+	ora	#$90
+	sta	PPU_CTRL
+	lda	#$fe
+	sta	PPU_MASK
+	cli
+	lda	irqTime
+	sta	$4020
+	lda	irqTime+1
+	sta	$4021
+	lda	#$03					; タイマスタート
+	sta	$4022
+@NMIJ10:
+.endif
 	pla
 
 	jmp	NMI_DefaultHandler
@@ -480,8 +517,9 @@ bypass:
 ;------------------------------------------------------------------------------
 
 ;.include	"pcg.s"
-.include	"mon.s"
 .include	"token.s"
 
 .include	"fds.s"
+.include	"irq.s"
 
+.include	"mon.s"

@@ -98,5 +98,5 @@ pNmiTrampoline	= 	$ed
 	.addr		pNmiTrampoline					; NMI #2
 	.addr		bypass						; NMI #3, default
 	.addr		_Reset						; Reset
-	.addr		_Reset						; IRQ
+	.addr		IRQ						; IRQ
 

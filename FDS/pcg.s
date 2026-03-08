@@ -1,5 +1,4 @@
 ;ts=8
-.segment	"ORG_TOKEN_AREA"
 
 ;------------------------------------------------------------------------------
 zActAddr	=	zpPokeAddr
@@ -26,16 +25,10 @@ EDIT_CHAR_POS	=	$212c
 CHARS_SHOW_POS	=	$206e
 
 ;------------------------------------------------------------------------------
-.enum
-	Y_POS	=	0
-	OBJ_NO
-	OBJ_ATTR
-	X_POS
-.endenum
+.segment	"ORG_TOKEN_AREA"
 
 flgBgObj:
 	.byte	$08
-
 
 ;------------------------------------------------------------------------------
 ;	Clr8x8:
@@ -156,6 +149,7 @@ cbPtr:	lsr	charBuf,x
 	bne	PBL20
 
 	rts
+
 ;------------------------------------------------------------------------------
 ;	Extent8x8:	2bpデータ展開
 ;
@@ -256,6 +250,9 @@ Put8x8:
 ;	ShowChars:
 ;
 ShowChars:
+	lda	charDirty
+	beq	@SCEnd
+
 	ldx	#>CHARS_SHOW_POS
 	lda	#<CHARS_SHOW_POS
 	jsr	SetActAddr
@@ -285,8 +282,10 @@ ShowChars:
 	dec	tmpY
 	bne	@SCL10
 
-	jsr	VOn
+	sty	charDirty
 
+	jsr	VOn
+@SCEnd:
 	rts
 
 NextLine:
@@ -589,7 +588,8 @@ CurUpdateEnd:
 	jsr	EditCurUpdate
 
 	rts
-;.byte	">>>"
+
+;.byte	">$"
 
 .segment	"OLD_GAME_COMMAND"
 ;------------------------------------------------------------------------------
@@ -605,7 +605,7 @@ SetActAddr:
 ;------------------------------------------------------------------------------
 ;	CLS2:
 CLS2:
-	sta	$b48a				; Clear Char No.
+	sta	$b48a				; Clear Char Code.
 
 	lda	#0
 	jsr	CLS				; BASIC command: CLS
@@ -743,24 +743,17 @@ FlipBgObj:
 						;--- OBJ
 	ldy	#>xferTbl2
 	ldx	#<xferTbl2
-	lda	#$ef
 	bne	@FBJ20
 @FBJ10:						;--- BG
 	ldy	#>xferTbl
 	ldx	#<xferTbl
-	lda	#$20
 @FBJ20:
-	pha
-	sta	charDirty
-
 	sty	zActAddr+1
 	stx	zActAddr
 	jsr	CharXfer
 
 ;------------------------------------------------------------------------------
 UpdateDisp:
-	pla
-	jsr	CLS2
 
 	jsr	ShowChars
 	jsr	ShowPalet
@@ -814,27 +807,23 @@ CmdPCG:
 	sta	paletNo
 	sta	palNum
 
-	jsr	InitEdCur
+	lda	#$fc
+	sta	charDirty
+	jsr	CLS2
 
+	jsr	InitEdCur
 	jsr	FlipBgObj
 
 	jsr	Edit8x8
 @Exit:						;--- 終了
-;	jsr	VOff
-;	lda	#$00
-;	sta	PPU_MASK
 	jsr	WaitForVBlank
-
 	jsr	RestoreChar
-
 	jsr	ClearOam
-
-	jsr	VOn
-	lda	zpPpuMaskVal
-	sta	PPU_MASK
 
 	lda	#$fd
 	sta	zpCursorChar
+
+	jsr	VOn
 
 	lda	#$08
 	sta	flgBgObj
@@ -846,4 +835,4 @@ CmdPCG:
 PCGEND:
 	rts
 
-.byte	"END"
+.byte	">$"

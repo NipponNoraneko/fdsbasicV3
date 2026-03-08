@@ -1,5 +1,25 @@
 ;ts=8
 
+.segment	"FDS_PATCH"
+CmdMON:
+	jsr	TxtPtrIncr
+
+	lda	$7000
+	cmp	#'M'
+	bne	@CMJ10
+	jsr	SimpleMonitor
+
+	rts
+@CMJ10:
+	lda	#STR_NOMON
+	jsr	PutStr
+@Exit:
+	rts
+
+
+.segment	"MON"
+.asciiz		"MON"
+
 zEditAddr	=	zpPokeAddr		; basic zp override
 						; zpPokeAddrはPOKE以外で使われていない(多分)
 STOP_KEY	=	$03
@@ -633,14 +653,13 @@ monCmds:
 
 ;------------------------------------------------------------------------------
 ;
-CmdMON:
+SimpleMonitor:
 	lda	#$ff
 	sta	dirty
 
 	jsr	MonPrompt
-	bcc	CmdMON
+	bcc	SimpleMonitor
 
-	jsr	TxtPtrIncr
 
 	rts
 
@@ -651,3 +670,5 @@ zpCHsav:
 	.res	1
 zpCVsav:
 	.res	1
+
+.asciiz		"END_MON"

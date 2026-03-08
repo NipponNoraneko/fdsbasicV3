@@ -6,6 +6,8 @@
 ;		https://famibe.addictivecode.org/disassembly/fb3.nes.html
 ;
 ;------------------------------------------------------------------------------
+NC_PpuMaskUpdate	=	11
+NC_PpuMaskClear		=	12
 
 ;----- BASIC zeroPage
 zpTXTTAB		=	$05
@@ -27,11 +29,11 @@ zpPpuMaskVal		=	$33
 zpCH			=	$48		; Current cursor column number
 zpCV			=	$49		; Current cursor row number 
 zpOutputStr		=	$52		; Pointer to null-term'd string to be queued for output
+zpCursorChar		=	$61
+zpNMICMD		=	$63		; Which command the NMI handler should execute. 1 + the command's index in jtbl_NMICMD.
 zpRkimMidMacro		=	$66
 zpSavedCH		=	$6b
 zpSavedCV		=	$6c
-
-zpCursorChar		=	$61
 
 zpCtrlKeyDn		=	$6f		; Non-zero (#$FF) when control key is pressed
 zpShiftKeyDn		=	$70		; Non-zero (#$FF) when (either) shift key is pressed

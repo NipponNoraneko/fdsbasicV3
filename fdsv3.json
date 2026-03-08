@@ -35,7 +35,7 @@
       "actual_disk_side": "A",
       "disk_type_other": "YellowDisk",
       "disk_version": "$00",
-      "file_amount": 4,				"$comment":"実際のファイル数と一致させてください",
+      "file_amount": 5,				"$comment":"実際のファイル数と一致させてください",
       "files": [
         {
           "file_number": "0",
@@ -63,7 +63,15 @@
         },
         {
           "file_number": "3",
-          "file_indicate_code": "$10",		"$comment":"BCDで$10以上$80未満で記述してください",
+          "file_indicate_code": "$10",		"$comment":"BCDで記述してください",
+          "file_name": "SMONITOR",
+          "file_address": "$7000",
+          "file_kind": "Program",
+          "data": "stuff/monitor.prg"
+        },
+        {
+          "file_number": "3",
+          "file_indicate_code": "$11",		"$comment":"BCDで$10以上$80未満で記述してください",
           "file_name": "PAC-WRLD",
           "file_address": "$6000",
           "file_kind": "Program",
