@@ -49,7 +49,7 @@ zpHaveFNameArg		=	$ea		; true when LOAD was given a filename arg
 zpNmiTrampoline		=	$ed		; Contains a JMP instruction to the real NMI handler.
 						; It's set to: JMP $8971
 
-zpGameNum		=	$f3
+zpGameNum		=	$f3		; Game number (GAME cmd)
 
 ;----- BASIC area
 oamBuffer		=	$0200

@@ -6,6 +6,7 @@ Thumbs.db
 *.nl
 *.cdl
 *.mlb
+asm6f
 *.chr
 *.bat
 *.exe
@@ -13,9 +14,6 @@ Thumbs.db
 *.prg
 *.o
 *.dbg
-*.lbl
-*.map
+*.labels.txt
+*.map.txt
 *.swp
-*.sav
-tape
-*.save

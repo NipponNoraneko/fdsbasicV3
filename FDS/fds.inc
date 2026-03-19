@@ -12,6 +12,7 @@ Y_SCROLL_Mirror		= $00fc
 X_SCROLL_Mirror		= $00fd
 PPU_MASK_Mirror		= $00fe
 PPU_CTRL_Mirror		= $00ff
+
 NMI_FLAG		= $0100
 IRQ_FLAG		= $0101
 RESET_FLAG		= $0102

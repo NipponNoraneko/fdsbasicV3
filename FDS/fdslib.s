@@ -25,11 +25,6 @@ testIRQ:.res	1
 irqTime:.addr	$8000
 .endif
 
-;- PCG --------------------------------------
-editCharNo	=	$6b00
-oneCharBuf	=	$6b04
-charBuf		=	$6b14
-
 ;------------------------------------------------------------------------------
 .enum
 	STR_NOMON	=	0
@@ -56,7 +51,7 @@ strTbl:
 
 	.addr	sPallet
 
-;--------------------------------------------
+;- FDS --------------------------------------
 sNoMon:	.asciiz	"THE MONITOR HAS NOT BEEN LOADED."
 sAreYouSure:
 ;	.asciiz "ARE YOU SURE YOU WANT TO DELETE THE FILE?"
@@ -64,12 +59,15 @@ sAreYouSure:
 sLoadFile:
 	.asciiz "LOADING..."
 sErr:	.byte	"! ERR.",0
-;--------------------------------------------
+
+;- MONITOR -----------------------------------
 sDump:  .asciiz	"DUMP"
 sModify:.asciiz	"MODIFY"
 sFrom:  .asciiz	" FROM:$"
-;--------------------------------------------
-sPallet:.byte	$fc, $fc, $fd, $fe, $ff, $fc, $fd, $fe, $ff,0
+
+;- PCG ---------------------------------------
+sPallet:.byte	$fc, $fc, $fd, $fe, $ff, $fc, $fd, $fe, $ff, $00
+
 
 ;------------------------------------------------------------------------------
 ;	VOffWaitVsync:
