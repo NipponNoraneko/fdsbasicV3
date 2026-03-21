@@ -279,29 +279,25 @@ Put8x8:
 	ldx	put8Tbl+1,y
 	lda	put8Tbl,y
 	jsr	SetActAddr
+
+	jsr	VOffWaitVsync
+	jsr	SetLineAddr
 						;--- 
 	ldy	#0
 	sty	charDirty
 @P88L05:					;--- 一行表示
-	ldx	#0
+	ldx	#8-1
 @P88L10:
 	lda	charBuf,y
 	clc
 	adc	#$fc
-	sta	lineBuffer80,x
+	sta	PPU_DATA
 	iny
-	inx
-	cpx	#8
-	bne	@P88L10				; 一行未完
+	dex
+	bpl	@P88L10
 
-	sty	tmpY
-	lda	#0
-	sta	lineBuffer80,x			; デリミタ
-
-	jsr	Buf2VRAM			; 一行表示
 	jsr	NextLine
 
-	ldy	tmpY
 	cpy	#64
 	bne	@P88L05				; 次行
 
@@ -328,10 +324,16 @@ ShowChars:
 @lineCnt:
 	ldy	#16
 	sty	tmpY
+
+	jsr	VOffWaitVsync
+	lda	#0
+	sta	PPU_MASK
+	jsr	SetLineAddr
+
 	lda	#0
 	tax
 @SCL10:
-	sta	lineBuffer80,x
+	sta	PPU_DATA
 	clc
 	adc	#1
 	inx
@@ -340,13 +342,9 @@ ShowChars:
 	bne	@SCL10
 						;---
 	pha
-	lda	#0
-	sta	lineBuffer80,x			; 文字列デリミタ:0
-
-	jsr	Buf2VRAM
 	jsr	NextLine
-
 	pla
+
 	ldx	#00
 
 	dec	tmpY
@@ -362,9 +360,17 @@ NextLine:
 	clc
 	adc	#32
 	sta	zActAddr
-	bcc	@NLEnd
+	bcc	SetLineAddr
 	inc	zActAddr+1
-@NLEnd:
+SetLineAddr:
+	lda	PPU_STATUS
+	lda	zActAddr+1
+	sta	PPU_ADDR
+	lda	zActAddr
+	sta	PPU_ADDR
+
+	jsr	ResetScroll
+
 	rts
 
 ;------------------------------------------------

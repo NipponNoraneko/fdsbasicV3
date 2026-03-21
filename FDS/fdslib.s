@@ -15,15 +15,9 @@ driveStat:						; ドライブ状態
 							;--- タイトル行
 ;--------------------------------------------
 strNS_HUDSON:
-	.byte	"NS-HUBASIC V3.0D:"
+	.byte	"NS-HUBASIC V3.0:D"
 .incbin	"datetime.s",0,10
 	.byte	$00
-
-.ifdef	IRQ_EXPERIMANT					;--- FDS タイマの実験
-;--------------------------------------------
-testIRQ:.res	1
-irqTime:.addr	$8000
-.endif
 
 ;------------------------------------------------------------------------------
 .enum
@@ -74,7 +68,10 @@ sPallet:.byte	$fc, $fc, $fd, $fe, $ff, $fc, $fd, $fe, $ff, $00
 ;
 VOffWaitVsync:
 	jsr	VOff
-	jsr	WaitForVBlank
+	;jsr	WaitForVBlank
+@VOWVJ10:
+	lda	PPU_STATUS
+	bpl	@VOWVJ10
 
 	rts
 
@@ -85,7 +82,7 @@ VsyncOn:
 	lda	#$c0
 	sta	NMI_FLAG
 VOn:
-	lda	PPU_CTRL_Mirror
+	lda	zpPpuCtrlVal
 	ora	#$80
 	bne	SetPPU
 
@@ -94,17 +91,15 @@ VsyncOff:
 	lda	#$00
 	sta	NMI_FLAG
 VOff:
-	lda	PPU_CTRL_Mirror
+	lda	zpPpuCtrlVal
 	and	#$7f
 
 ;------------------------------------------------
 SetPPU:
 	sta	PPU_CTRL
-	sta	PPU_CTRL_Mirror
 
 	lda	zpPpuMaskVal
 	sta	PPU_MASK
-	sta	PPU_MASK_Mirror
 
 	lda	#$27				; $27: |H-SCRL|READ|M-OFF|NO-RESET|
 	sta	FDS_CTRL
@@ -118,6 +113,7 @@ SetPpuAddr:
 	sta	zActAddr
 	sta	PPU_ADDR
 
+;------------------------------------------------
 ResetScroll:
 	ldx	#0
 	stx	PPU_SCROLL
@@ -204,33 +200,6 @@ NMI:
 	pha
 	lda	FDS_DRIVE_STATUS
 	sta	driveStat
-.ifdef	IRQ_EXPERIMANT					;--- FDS タイマの実験
-	lda	zpNMICMD
-	bne	@NMIJ10
-	cmp	#NC_PpuMaskUpdate
-	beq	@NMIJ10
-	cmp	#NC_PpuMaskClear
-	beq	@NMIJ10
-
-	lda	testIRQ
-	beq	@NMIJ10
-
-	lda	#$c0
-	sta	IRQ_FLAG
-	lda	zpPpuCtrlVal
-	ora	#$90
-	sta	PPU_CTRL
-	lda	#$fe
-	sta	PPU_MASK
-	cli
-	lda	irqTime
-	sta	$4020
-	lda	irqTime+1
-	sta	$4021
-	lda	#$03					; タイマスタート
-	sta	$4022
-@NMIJ10:
-.endif
 	pla
 
 	jmp	NMI_DefaultHandler
