@@ -108,6 +108,10 @@ SetPPU:
 
 ;------------------------------------------------------------------------------
 SetPpuAddr:
+	pha
+	lda	PPU_CTRL
+	pla
+
 	stx	zActAddr+1
 	stx	PPU_ADDR
 	sta	zActAddr
@@ -118,6 +122,18 @@ ResetScroll:
 	ldx	#0
 	stx	PPU_SCROLL
 	stx	PPU_SCROLL
+
+	rts
+
+;------------------------------------------------
+SetLineAddr:
+	lda	PPU_STATUS
+	lda	zActAddr+1
+	sta	PPU_ADDR
+	lda	zActAddr
+	sta	PPU_ADDR
+
+	jsr     ResetScroll
 
 	rts
 
@@ -139,12 +155,7 @@ Buf2VRAM:
 	jsr	VOff
 	jsr	WaitForVBlank				; BASIC routine
 
-	lda	zActAddr+1
-	sta	PPU_ADDR
-	lda	zActAddr
-	sta	PPU_ADDR
-
-	jsr	ResetScroll
+	jsr	SetLineAddr
 
 	lda	lineBuffer80,x
 	beq	@B2VJ10

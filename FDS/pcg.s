@@ -360,16 +360,10 @@ NextLine:
 	clc
 	adc	#32
 	sta	zActAddr
-	bcc	SetLineAddr
+	bcc	@NLJ10
 	inc	zActAddr+1
-SetLineAddr:
-	lda	PPU_STATUS
-	lda	zActAddr+1
-	sta	PPU_ADDR
-	lda	zActAddr
-	sta	PPU_ADDR
-
-	jsr	ResetScroll
+@NLJ10:
+	jsr	SetLineAddr
 
 	rts
 
@@ -868,6 +862,7 @@ PaletCurUpdate:
 ChangeMode:
 	lda	#0
 	sta	putPos
+	sta	charEditPos
 	sta	editX
 	sta	editY
 	jsr	UpdateEditCur
