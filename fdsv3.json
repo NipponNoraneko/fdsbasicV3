@@ -70,7 +70,7 @@
           "data": "stuff/monitor.prg"
         },
         {
-          "file_number": "3",
+          "file_number": "4",
           "file_indicate_code": "$11",		"$comment":"BCDで$10以上$80未満で記述してください",
           "file_name": "PAC-WRLD",
           "file_address": "$6000",
