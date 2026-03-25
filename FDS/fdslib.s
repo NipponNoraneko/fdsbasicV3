@@ -180,6 +180,54 @@ WaitVsyncY:
 	rts
 
 ;------------------------------------------------------------------------------
+;	SaveBasWork:	 BASIC領域の退避
+;
+SaveBasWork:
+	ldx	#$0f
+@SBW10:
+	lda	tempzp,x
+	sta	tempzpSav,x
+	lda	joypad,x
+	sta	joypadSav,x
+	dex
+	bpl	@SBW10
+						;--- PPU setting
+	lda	zpPpuCtrlVal
+	sta	PPU_CTRL_Mirror
+
+	lda	zpPpuMaskVal
+	sta	PPU_MASK_Mirror
+
+	jsr	RBEnd
+	sta	FDS_CTRL_Mirror
+
+	rts
+
+;------------------------------------------------------------------------------
+;	RestoreBasWork:	BASIC領域の復元
+;
+RestoreBasWork:
+	ldx	#$0f
+@RBW10:
+	lda	tempzpSav,x
+	sta	tempzp,x
+	lda	joypadSav,x
+	sta	joypad,x
+	dex
+	bpl	@RBW10
+
+	lda	zpPpuCtrlVal
+	ora	#$80
+	sta	PPU_CTRL
+
+	lda	zpPpuMaskVal
+	sta	PPU_MASK
+RBEnd:
+	lda	#$27				; |H-SCRL|READ|M-OFF|NO-RESET|
+	sta	FDS_CTRL
+
+	rts
+;------------------------------------------------------------------------------
 ;	_ResetPatch:
 ;
 _ResetPatch:

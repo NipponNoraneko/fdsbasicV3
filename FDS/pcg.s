@@ -39,40 +39,39 @@ PALET_CURSOR	=	$2f0
 PALET_CURSOR2	=	$2f4
 EDIT_CURSOR	=	$2f8
 
-;- work / char data buf  -----------------------
 .segment	"BSS"
-currentEdCharNo:.res	1			; 編集キャラクタ番号
+;- work / char data buf  -----------------------
+currentEdCharNo:.res	1			; 編集中キャラクタ番号
 editCharNo:	.res	4			; 編集キャラクタ番号: 4 byte
-preEditCharNo1:	.res	4			; 編集キャラクタ番号: 4 byte
-preEditCharNo2:	.res	4			; 編集キャラクタ番号: 4 byte
-oneCharBuf:	.res	16			; 8x8表示キャラクタバッファ:$10 byte
-charBuf:	.res	64			; 8x8表示用バッファ: 64 byte
+
+putPos:		.res	1			; 16x16:編集位置
+prePutPos:	.res	1			;       前回
+
+oneCharBuf:	.res	16			; 8x8表示キャラクタバッファ:16 byte
+charEditPos:	.res	1
+charBuf:	.res	64			; 8x8表示展開バッファ: 64 byte
 
 CUR_BG_SAVE_BUF:.res	$80			; BG編集用キャラクタ保存用
 CUR_OBJ_SAVE_BUF:
 		.res	$80			; スプライト編集用キャラクタ保存用
 
-;- char data buf  ------------------------------
+
 .segment	"BSS2"
-EDIT_CHAR_BUF:	.res	$1000			; 編集キャラクタバッフ $10 x 256
+;- char data buf  ------------------------------
+EDIT_CHAR_BUF:	.res	$1000			; 編集キャラクタバッファ $10 x 256
 
-;------------------------------------------------------------------------------
+
 .segment	"FDS_PATCH"
-
+;------------------------------------------------------------------------------
 editMode:
 	.res	1
 editX:	.res	1
 editY:	.res	1
 
-leftTopCharNo:
-	.res	1
-charEditPos:
-	.res	1
 markX:	.res	1
 markY:	.res	1
 
-putPos: .res	1
-prePutPos:
+leftTopCharNo:
 	.res	1
 
 charDirty:
@@ -82,14 +81,13 @@ flgBgObj:
 	.byte	$08
 
 ;- 編集用スプライト ----------------------------
-tblCurs:
+tblCurs:	; Y         No. att.  X
 markCur:.byte	24-1,      $f8, $03, 112 
 paletCur:
 	.byte	136,       $fa, $03, 16		;
 pal2Cur:.byte	128-1,     $fb, $83, 24
 editCur:.byte	(2+3)*8-1, $f9, $03, (1+2)*8
 
-;------------------------------------------------------------------------------
 
 .segment	"ORG_TOKEN_AREA"
 ;------------------------------------------------------------------------------
@@ -657,7 +655,7 @@ RestoreChar:
 	ora	#$10
 	sta	PPU_CTRL
 	sta	zpPpuCtrlVal
-	sta	PPU_CTRL_Mirror
+	;sta	PPU_CTRL_Mirror
 
 	rts
 
@@ -723,29 +721,29 @@ CharXfer2:
 
 .segment	"FDS_PATCH"
 ;------------------------------------------------------------------------------
-xferTbl:
+xferTbl:									;--- 編集キャラクタ転送(BG)
 	.byte	$00|PCG_READ,  $10, 0, <EDIT_CHAR_BUF,    >EDIT_CHAR_BUF	; $1000~$1fff -> $7000~ BGすべて
 	.byte	$80|PCG_WRITE, $1f, 8, <CUR_OBJ_SAVE_BUF, >CUR_OBJ_SAVE_BUF	; $0f00~$0fff <- $6c00~ OBJ:F0~FF
 	.byte	$80|PCG_READ,  $1f, 8, <CUR_OBJ_SAVE_BUF, >CUR_OBJ_SAVE_BUF	; $0f00~$0fff -> $6c00~ OBJ:F0~FF
 	.byte	$80|PCG_WRITE, $0f, 8, <$6e80, >$6e80				; $7d90~$7d9f -> $0ff0~ '□'->OBJ:d9
 	.byte	$c0|PCG_WRITE, $1f, 4, <$6ec0, >$6ec0				; $7d90~$7d9f -> $0ff0~ '□'->OBJ:d9
 	
-xferTbl2:
+xferTbl2:									;--- 編集キャラクタ転送(SPRITE)
 	.byte	$00|PCG_READ,  $00, 0, <EDIT_CHAR_BUF,   >EDIT_CHAR_BUF		; $0000~$0fff -> $7000~ OBJすべて
 	.byte	$80|PCG_WRITE, $0f, 8, <CUR_BG_SAVE_BUF, >CUR_BG_SAVE_BUF	; $0f00~$0fff <- $6c00~ OBJ:F0~FF
 	.byte	$80|PCG_READ,  $0f, 8, <CUR_BG_SAVE_BUF, >CUR_BG_SAVE_BUF	; $0f00~$0fff -> $6c00~ BG:F0~FF
 	.byte	$80|PCG_WRITE, $1f, 8, <$6e80, >$6e80				; $7d90~$7d9f -> $0ff0~ '□'->OBJ:d9
 	.byte	$c0|PCG_WRITE, $0f, 4, <$6ec0, >$6ec0				; $7d90~$7d9f -> $0ff0~ '□'->OBJ:d9
 	
-xferEditTbl:
+xferEditTbl:									;--- 編集用キャラクタ転送
 	.byte	$80|PCG_READ,  $0f, 8, <CUR_BG_SAVE_BUF,  >CUR_BG_SAVE_BUF	; $0f80~$0fff -> $6c00~ OBJ:F0~FF
 	.byte	$80|PCG_READ,  $1f, 8, <CUR_OBJ_SAVE_BUF, >CUR_OBJ_SAVE_BUF	; $1f80~$0fff -> $6c80~ BG:F0~FF
-	.byte	$90|PCG_READ,  $0d, 1, <$6e80, >$6e80		; '└'->OBJ:FF
-	.byte	$d0|PCG_READ,  $0d, 1, <$6e90, >$6e90		; '✛'->OBJ:FE
-	.byte	$e0|PCG_READ,  $13, 1, <$6ea0, >$6ea0		; '>'->OBJ:FD
-	.byte	$e0|PCG_READ,  $15, 1, <$6eb0, >$6eb0		; '^'->OBJ:FC
-	.byte	$00|PCG_READ,  $12, 1, <$6ec0, >$6ec0		; ' '->OBJ:FC
-	.byte	$d0|PCG_READ,  $1f, 3, <$6ed0, >$6ed0		; '■■■'-> OBJ:FC
+	.byte	$90|PCG_READ,  $0d, 1, <$6e80, >$6e80				; '└'->OBJ:FF
+	.byte	$d0|PCG_READ,  $0d, 1, <$6e90, >$6e90				; '✛'->OBJ:FE
+	.byte	$e0|PCG_READ,  $13, 1, <$6ea0, >$6ea0				; '>'->OBJ:FD
+	.byte	$e0|PCG_READ,  $15, 1, <$6eb0, >$6eb0				; '^'->OBJ:FC
+	.byte	$00|PCG_READ,  $12, 1, <$6ec0, >$6ec0				; ' '->OBJ:FC
+	.byte	$d0|PCG_READ,  $1f, 3, <$6ed0, >$6ed0				; '■■■'-> OBJ:FC
 
 xferRestoreTbl:
 	.byte	$80|PCG_WRITE, $0f, 8, <CUR_BG_SAVE_BUF,  >CUR_BG_SAVE_BUF	; $0f80~$0fff <- $6c00~ OBJ:F0~FF
@@ -755,6 +753,7 @@ xferRestoreTbl:
 ;	FlipBgObj:
 ;
 FlipBgObj:
+
 	lda	flgBgObj
 	eor	#$18
 	sta	flgBgObj
@@ -769,21 +768,23 @@ FlipBgObj:
 	cmp	#$08				; BG
 	bne	@FBJ10				; yes
 						;--- OBJ
-	ldy	#>xferTbl2
-	ldx	#<xferTbl2
+	ldx	#>xferTbl2
+	lda	#<xferTbl2
 	bne	@FBJ20
 @FBJ10:						;--- BG
-	ldy	#>xferTbl
-	ldx	#<xferTbl
+	ldx	#>xferTbl
+	lda	#<xferTbl
 @FBJ20:
-	sty	zActAddr+1
-	stx	zActAddr
+	jsr	SetActAddr
+
 	jsr	CharXfer
 
 ;------------------------------------------------------------------------------
 ;	UpdateDisp:
 ;
 UpdateDisp:
+	jsr	ResetEditWork
+	;jsr	UpdateEditCur
 
 	jsr	ShowChars
 	jsr	ShowPalet
@@ -857,15 +858,26 @@ PaletCurUpdate:
 	rts
 
 ;------------------------------------------------------------------------------
-;	ChangeMode:	編集モード切り替え
+;	ResetEditWork:
 ;
-ChangeMode:
+ResetEditWork:
 	lda	#0
 	sta	putPos
 	sta	charEditPos
 	sta	editX
 	sta	editY
+	sta	markX
+	sta	markY
+
 	jsr	UpdateEditCur
+
+	rts 
+
+;------------------------------------------------------------------------------
+;	ChangeMode:	編集モード切り替え
+;
+ChangeMode:
+	jsr	ResetEditWork
 
 	lda	editMode
 	clc
@@ -890,15 +902,11 @@ ReDisp:
 @CMJ10:
 	ldx	#4-1
 	stx	putPos
+	stx	charDirty
 @CMLoop:
 	txa
 	pha
-
-	;eor	#$03
 	tax
-
-	lda	#1
-	sta	charDirty
 
 	jsr	@CMSub
 	jsr	CalcMarkCurPos
@@ -1007,6 +1015,7 @@ tblSftKeyAct:
 
 	.byte	$ff
 
+;------------------------------------------------------------------------------
 MarkCurDown:
 	lda	#8
 	bne	MCUJ10
@@ -1051,14 +1060,12 @@ InitMarkCur:
 	inx
 	dex
 	bpl	@IELoop
-
+						;--- アトリビュート
 	inx
 	ldy	#$00
 @IMCL20:
 	lda	tblMarkAttr,y
 	sta	MARK_CURSOR + OBJ_ATTR,x
-	lda	#$f8
-	sta	MARK_CURSOR + OBJ_NO,x
 	inx
 	inx
 	inx
@@ -1077,26 +1084,26 @@ tblMarkAttr:
 ;	CalcMarkCurPos:
 ;
 CalcMarkCurPos:
-						; 編集モードチェック
-	lda	editMode
-	bne	@CMCPJ10			; 16x16
-						;--- 8x8
+						;--- 表示開始位置
+	lda	editMode			; 編集モードチェック
+	bne	@CMCPJ10			;
+						;- 8x8
 	ldx	#$0f
 	lda	#112
 	bne	@CMCPJ15
-@CMCPJ10:					;--- 16x16
+@CMCPJ10:					;- 16x16
 	ldx	#$07
 	lda	#176
 @CMCPJ15:
 	stx	zTempPtr
 	sta	zTempPtr+1
-						;--- カーソル
+						;--- カーソル番号
 	lda	putPos
 	asl	a
 	asl	a
-	tax					; カーソル用スプライト:MARK_CURSOR + putPos * 4
-
-	lda	currentEdCharNo			; カーソル:X_POS
+	tax					; X: カーソルスプライト オフセット putPos * 4
+						;--- カーソル: X_POS
+	lda	currentEdCharNo
 	and	zTempPtr
 	asl	a
 	asl	a
@@ -1104,7 +1111,7 @@ CalcMarkCurPos:
 	clc
 	adc	zTempPtr+1			; CharNo * 8 + 112
 	sta	MARK_CURSOR + X_POS,x
-						; カーソル:Y_POS
+						;--- カーソル: Y_POS
 	lda	zTempPtr
 	eor	#$ff
 	and	currentEdCharNo
@@ -1216,12 +1223,6 @@ CmdPCG:
 	sta	editMode			; 8x8 mode
 	sta	palNum
 	sta	paletVal
-	sta	putPos
-
-	sta	editX
-	sta	editY
-	sta	markX
-	sta	markY
 
 	lda	#$08
 	sta	flgBgObj
@@ -1231,6 +1232,8 @@ CmdPCG:
 	jsr	InitEditChar
 	jsr	InitEdCur
 	jsr	FlipBgObj
+
+	jsr	ResetEditWork
 						;--- 編集
 	jsr	Edit8x8
 @Exit:						;--- 終了
